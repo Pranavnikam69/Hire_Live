@@ -45,8 +45,9 @@ function MeetingRoom() {
 
   const callingState = useCallCallingState();
   const localParticipant = useLocalParticipant();
-
-  const { isInterviewer: isInterviewerRole, loading: roleLoading } = useUserRole();
+  const { user } = useUser();
+  const call = useCall();
+  const { isInterviewer: isInterviewerRole, isLoading: roleLoading } = useUserRole();
 
   // The creator of the meeting is the Interviewer, OR if they have the explicit role
   const isInterviewer = call?.state?.createdBy?.id === user?.id || isInterviewerRole;
