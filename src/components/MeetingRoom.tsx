@@ -1,8 +1,5 @@
 import {
-  ToggleAudioButton,
-  ToggleVideoButton,
-  CancelCallButton,
-  SpeakingWhileMutedNotification,
+  CallControls,
   CallingState,
   CallParticipantsList,
   PaginatedGridLayout,
@@ -188,11 +185,9 @@ function MeetingRoom() {
           <div className="absolute bottom-4 left-0 right-0">
             <div className="flex flex-col items-center gap-4">
               <div className="flex items-center gap-2 flex-wrap justify-center px-4">
-                <SpeakingWhileMutedNotification>
-                  <ToggleAudioButton />
-                </SpeakingWhileMutedNotification>
-                <ToggleVideoButton />
-                <CancelCallButton onLeave={() => router.push("/")} />
+                <div className="[&_button[title*='screen' i]]:hidden [&_button[title*='Share' i]]:hidden">
+                  <CallControls onLeave={() => router.push("/")} />
+                </div>
 
                 <div className="flex items-center gap-2">
                   <DropdownMenu>
