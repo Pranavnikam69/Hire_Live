@@ -159,24 +159,24 @@ export const useFaceTracking = (
                 const botDist = Math.abs(bottomEdge.y - nose.y);
                 const pitchRatio = topDist / botDist;
 
-                const HORIZ_EYE_THRESHOLD = 0.25; // Tightened to 0.25 to catch left-side cheating
-                const DOWN_EYE_THRESHOLD = 0.40;
-                const UP_EYE_THRESHOLD = 0.15; // Above mathematical noise floor
+                const HORIZ_EYE_THRESHOLD = 0.45; // Loosened to allow looking at left video / right editor
+                const DOWN_EYE_THRESHOLD = 0.55; // Loosened for keyboard/editor focus
+                const UP_EYE_THRESHOLD = 0.30; 
                 let suspicionIncrement = 0;
 
                 // 1. Highly suspicious: Looking UP/DOWN (pitch heavily skewed, or eyes looking up/down)
                 // pitchRatio becomes small (< 1.0) when looking UP. pitchRatio becomes large (> 1.0) when looking DOWN.
-                if (pitchRatio > 3.0 || pitchRatio < 0.50 || lookDown > DOWN_EYE_THRESHOLD || lookUp > UP_EYE_THRESHOLD) {
-                  suspicionIncrement = 1; // Builds normally (~2 seconds to trigger)
+                if (pitchRatio > 4.5 || pitchRatio < 0.40 || lookDown > DOWN_EYE_THRESHOLD || lookUp > UP_EYE_THRESHOLD) {
+                  suspicionIncrement = 1; // Builds normally
                 }
                 // 2. Mildly suspicious: Looking LEFT/RIGHT
-                else if (yawRatio > 4.0 || yawRatio < 0.35 || lookRight > HORIZ_EYE_THRESHOLD || lookLeft > HORIZ_EYE_THRESHOLD) {
-                  suspicionIncrement = 1; // Builds normally (~2 seconds to trigger)
+                else if (yawRatio > 6.0 || yawRatio < 0.25 || lookRight > HORIZ_EYE_THRESHOLD || lookLeft > HORIZ_EYE_THRESHOLD) {
+                  suspicionIncrement = 1; // Builds normally
                 }
 
                 if (suspicionIncrement > 0) {
                   consecutiveLookingAwayFrames.current += suspicionIncrement;
-                  if (consecutiveLookingAwayFrames.current >= 60) {
+                  if (consecutiveLookingAwayFrames.current >= 150) { // Increased to ~5 seconds (at 30fps)
                     playWarningSound(
                       "Warning! You must look directly at the screen.",
                     );
@@ -191,9 +191,9 @@ export const useFaceTracking = (
                     consecutiveLookingAwayFrames.current = 0;
                   }
                 } else {
-                  // Cool down suspicion gradually if they look forward
-                  // Decay by 2 per frame prevents "flashing" or repeating cheat looks
-                  consecutiveLookingAwayFrames.current = Math.max(0, consecutiveLookingAwayFrames.current - 2);
+                  // Cool down suspicion quickly if they look forward
+                  // Decay by 3 per frame allows for brief natural head movements
+                  consecutiveLookingAwayFrames.current = Math.max(0, consecutiveLookingAwayFrames.current - 3);
                 }
               }
             }
