@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import toast from "react-hot-toast";
 import { playWarningSound } from "@/lib/audio";
+import { useCall } from "@stream-io/video-react-sdk";
 
 export const useFaceTracking = (
   videoElement: HTMLVideoElement | null,
@@ -10,6 +11,7 @@ export const useFaceTracking = (
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker | null>(
     null,
   );
+  const call = useCall();
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const animationRef = useRef<number>();
   const lastVideoTimeRef = useRef(-1);
@@ -86,6 +88,10 @@ export const useFaceTracking = (
                     duration: 3000,
                   },
                 );
+                call?.sendCustomEvent({
+                  type: "cheat-alert",
+                  reason: "Student's face is not visible!"
+                });
                 // reset counter to allow subsequent warnings
                 consecutiveNoFaceFrames.current = 0;
               }
@@ -99,6 +105,10 @@ export const useFaceTracking = (
                 toast.error("Warning: Multiple faces detected!", {
                   id: "multi-face-warning",
                   duration: 3000,
+                });
+                call?.sendCustomEvent({
+                  type: "cheat-alert",
+                  reason: "Multiple faces detected!"
                 });
                 consecutiveMultiFaceFrames.current = 0;
               }
@@ -174,6 +184,10 @@ export const useFaceTracking = (
                       id: "looking-away-warning",
                       duration: 3000,
                     });
+                    call?.sendCustomEvent({
+                      type: "cheat-alert",
+                      reason: "Student is looking away from the screen!"
+                    });
                     consecutiveLookingAwayFrames.current = 0;
                   }
                 } else {
@@ -198,7 +212,7 @@ export const useFaceTracking = (
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [videoElement, isModelLoaded, faceLandmarker]);
+  }, [videoElement, isModelLoaded, faceLandmarker, call]);
 
   return { isModelLoaded };
 };
