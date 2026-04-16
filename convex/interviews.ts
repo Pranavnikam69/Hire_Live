@@ -68,3 +68,13 @@ export const updateInterviewStatus = mutation({
     });
   },
 });
+
+export const deleteInterview = mutation({
+  args: { id: v.id("interviews") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+
+    return await ctx.db.delete(args.id);
+  },
+});

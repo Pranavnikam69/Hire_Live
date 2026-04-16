@@ -3,20 +3,38 @@ import { Doc } from "../../convex/_generated/dataModel";
 import { getMeetingStatus } from "@/lib/utils";
 import { format, isValid } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, TrashIcon } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import { useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import toast from "react-hot-toast";
+import { useUserRole } from "@/hooks/useUserRole";
 
 type Interview = Doc<"interviews">;
 
 function MeetingCard({ interview }: { interview: Interview }) {
   const { joinMeeting } = useMeetingActions();
+  const { isInterviewer } = useUserRole();
+  const deleteInterview = useMutation(api.interviews.deleteInterview);
 
   const status = getMeetingStatus(interview);
   const startTime = new Date(interview.startTime);
   const formattedDate = isValid(startTime)
     ? format(startTime, "EEEE, MMMM d · h:mm a")
     : "Invalid Date";
+
+  const handleCancel = async () => {
+    if (!confirm("Are you sure you want to cancel this meeting?")) return;
+
+    try {
+      await deleteInterview({ id: interview._id });
+      toast.success("Meeting cancelled");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to cancel meeting");
+    }
+  };
 
   return (
     <Card>
@@ -51,9 +69,16 @@ function MeetingCard({ interview }: { interview: Interview }) {
         )}
 
         {status === "upcoming" && (
-          <Button variant="outline" className="w-full" disabled>
-            Waiting to Start
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" disabled>
+              Waiting to Start
+            </Button>
+            {isInterviewer && (
+              <Button variant="destructive" size="icon" onClick={handleCancel}>
+                <TrashIcon className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>
