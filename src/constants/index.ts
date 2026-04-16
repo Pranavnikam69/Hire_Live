@@ -56,13 +56,6 @@ export const QUICK_ACTIONS = [
     color: "orange-500",
     gradient: "from-orange-500/10 via-orange-500/5 to-transparent",
   },
-  {
-    icon: Sparkles,
-    title: "Dashboard",
-    description: "Manage candidate reviews",
-    color: "emerald-500",
-    gradient: "from-emerald-500/10 via-emerald-500/5 to-transparent",
-  },
 ];
 
 export const CODING_QUESTIONS: CodeQuestion[] = [
