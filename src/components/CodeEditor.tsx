@@ -1,26 +1,74 @@
 import { CODING_QUESTIONS, LANGUAGES } from "@/constants";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "./ui/resizable";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { AlertCircleIcon, BookIcon, LightbulbIcon } from "lucide-react";
 import Editor from "@monaco-editor/react";
+import { useCall } from "@stream-io/video-react-sdk";
 
 function CodeEditor() {
   const [selectedQuestion, setSelectedQuestion] = useState(CODING_QUESTIONS[0]);
   const [language, setLanguage] = useState<"javascript" | "python" | "java">(LANGUAGES[0].id);
   const [code, setCode] = useState(selectedQuestion.starterCode[language]);
+  const call = useCall();
+
+  useEffect(() => {
+    if (!call) return;
+
+    const unsubscribe = call.on("custom", (event) => {
+      // The event.type will be "custom" and the payload will be in event.custom
+      if (event.type === "custom" && event.custom.type === "codeSync") {
+        const { code: syncedCode, language: syncedLanguage, questionId: syncedQuestionId } = event.custom;
+
+        if (syncedQuestionId) {
+          const question = CODING_QUESTIONS.find((q) => q.id === syncedQuestionId);
+          if (question) setSelectedQuestion(question);
+        }
+        if (syncedLanguage) setLanguage(syncedLanguage);
+        if (syncedCode !== undefined) setCode(syncedCode);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [call]);
 
   const handleQuestionChange = (questionId: string) => {
     const question = CODING_QUESTIONS.find((q) => q.id === questionId)!;
     setSelectedQuestion(question);
-    setCode(question.starterCode[language]);
+    const newCode = question.starterCode[language];
+    setCode(newCode);
+
+    call?.sendCustomEvent({
+      type: "codeSync",
+      questionId,
+      code: newCode,
+    });
   };
 
   const handleLanguageChange = (newLanguage: "javascript" | "python" | "java") => {
     setLanguage(newLanguage);
-    setCode(selectedQuestion.starterCode[newLanguage]);
+    const newCode = selectedQuestion.starterCode[newLanguage];
+    setCode(newCode);
+
+    call?.sendCustomEvent({
+      type: "codeSync",
+      language: newLanguage,
+      code: newCode,
+    });
+  };
+
+  const handleCodeChange = (value: string | undefined) => {
+    const newCode = value || "";
+    // Only send if the code actually changed, to prevent infinite loops from the sync event
+    if (newCode === code) return;
+    setCode(newCode);
+
+    call?.sendCustomEvent({
+      type: "codeSync",
+      code: newCode,
+    });
   };
 
   return (
@@ -169,7 +217,7 @@ function CodeEditor() {
             language={language}
             theme="vs-dark"
             value={code}
-            onChange={(value) => setCode(value || "")}
+            onChange={handleCodeChange}
             options={{
               minimap: { enabled: false },
               fontSize: 18,
