@@ -122,19 +122,21 @@ export const useFaceTracking = (
 
               const HORIZ_EYE_THRESHOLD = 0.32;
               const DOWN_EYE_THRESHOLD = 0.42;
+              const UP_EYE_THRESHOLD = 0.18; // Sharpened from 0.25
               let suspicionIncrement = 0;
 
               const isLookingAway = 
-                pitchRatio > 3.2 || pitchRatio < 0.55 || 
+                pitchRatio > 3.2 || pitchRatio < 0.65 || // Sharpened Look Up (was 0.55)
                 yawRatio > 3.2 || yawRatio < 0.32 || 
-                lookDown > DOWN_EYE_THRESHOLD || lookUp > 0.25 || 
+                lookDown > DOWN_EYE_THRESHOLD || lookUp > UP_EYE_THRESHOLD || 
                 lookRight > HORIZ_EYE_THRESHOLD || lookLeft > HORIZ_EYE_THRESHOLD;
 
               if (isLookingAway) {
                 if (isTyping) {
                   suspicionIncrement = 0;
                 } else {
-                  const isSevere = pitchRatio > 4.5 || pitchRatio < 0.40 || yawRatio > 5.0 || yawRatio < 0.20;
+                  // Severe look detection - also sharpened for looking up
+                  const isSevere = pitchRatio > 4.5 || pitchRatio < 0.50 || yawRatio > 5.0 || yawRatio < 0.20;
                   suspicionIncrement = isSevere ? 3 : 1; 
                 }
               }
@@ -144,7 +146,13 @@ export const useFaceTracking = (
                 if (consecutiveLookingAwayFrames.current >= 80) {
                   playWarningSound("Warning! Look at the screen.");
                   toast.error("Warning: Please look at the screen!", { id: "looking-away", duration: 3000 });
-                  call?.sendCustomEvent({ type: "cheat-alert", reason: "Student is looking away!" });
+                  
+                  // Add timestamp to ensure uniqueness in Stream's event pipeline
+                  call?.sendCustomEvent({ 
+                    type: "cheat-alert", 
+                    reason: "Student is looking away!",
+                    timestamp: new Date().toISOString()
+                  });
                   consecutiveLookingAwayFrames.current = 0;
                 }
               } else {

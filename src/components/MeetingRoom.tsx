@@ -30,6 +30,7 @@ import EndCallButton from "./EndCallButton";
 import CodeEditor from "./CodeEditor";
 import { useAntiCheat } from "@/hooks/useAntiCheat";
 import { useFaceTracking } from "@/hooks/useFaceTracking";
+import { useUserRole } from "@/hooks/useUserRole";
 import { useUser } from "@clerk/nextjs";
 import { useCall } from "@stream-io/video-react-sdk";
 import { useEffect, useRef } from "react";
@@ -45,11 +46,10 @@ function MeetingRoom() {
   const callingState = useCallCallingState();
   const localParticipant = useLocalParticipant();
 
-  const { user } = useUser();
-  const call = useCall();
+  const { isInterviewer: isInterviewerRole, loading: roleLoading } = useUserRole();
 
-  // The creator of the meeting is the Interviewer
-  const isInterviewer = call?.state?.createdBy?.id === user?.id;
+  // The creator of the meeting is the Interviewer, OR if they have the explicit role
+  const isInterviewer = call?.state?.createdBy?.id === user?.id || isInterviewerRole;
   const isCandidate = !isInterviewer;
 
   const handleKick = async () => {
@@ -89,16 +89,20 @@ function MeetingRoom() {
   useEffect(() => {
     if (!call) return;
     const unsubscribe = call.on("custom", (event) => {
-      if (event.custom?.type === "cheat-alert" && isInterviewer) {
+      // Robust check for interviewer to show toast
+      const isActuallyInterviewer = call.state.createdBy?.id === user?.id || isInterviewerRole;
+      
+      if (event.custom?.type === "cheat-alert" && isActuallyInterviewer) {
         toast.error(`Anti-Cheat Alert: ${event.custom.reason}`, {
           duration: 6000,
-          position: "top-center"
+          position: "top-center",
+          id: `alert-${event.custom.timestamp || Date.now()}` // Unique ID to prevent missing alerts
         });
       }
     });
 
     return () => unsubscribe();
-  }, [call, isInterviewer]);
+  }, [call, user?.id, isInterviewerRole]);
 
   useEffect(() => {
     if (isCandidate && isModelLoaded) {
