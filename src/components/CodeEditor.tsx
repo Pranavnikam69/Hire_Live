@@ -8,7 +8,16 @@ import { AlertCircleIcon, BookIcon, LightbulbIcon } from "lucide-react";
 import Editor from "@monaco-editor/react";
 import { useCall } from "@stream-io/video-react-sdk";
 
-function CodeEditor() {
+import { useRef } from "react";
+
+function CodeEditor({
+  isCandidate,
+  onTypingStatusChange,
+}: {
+  isCandidate: boolean;
+  onTypingStatusChange: (isTyping: boolean) => void;
+}) {
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedQuestion, setSelectedQuestion] = useState(CODING_QUESTIONS[0]);
   const [language, setLanguage] = useState<"javascript" | "python" | "java">(LANGUAGES[0].id);
   const [code, setCode] = useState(selectedQuestion.starterCode[language]);
@@ -68,6 +77,15 @@ function CodeEditor() {
       type: "codeSync",
       code: newCode,
     });
+
+    // Typing Activity Detection
+    if (isCandidate) {
+      onTypingStatusChange(true);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        onTypingStatusChange(false);
+      }, 3000); // 3 seconds of inactivity before removing "typing" status
+    }
   };
 
   return (

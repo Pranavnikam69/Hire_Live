@@ -6,7 +6,7 @@ import { useCall } from "@stream-io/video-react-sdk";
 
 export const useFaceTracking = (
   videoElement: HTMLVideoElement | null,
-  { enabled = true }: { enabled?: boolean } = {},
+  { enabled = true, isTyping = false }: { enabled?: boolean; isTyping?: boolean } = {},
 ) => {
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker | null>(
     null,
@@ -159,24 +159,31 @@ export const useFaceTracking = (
                 const botDist = Math.abs(bottomEdge.y - nose.y);
                 const pitchRatio = topDist / botDist;
 
-                const HORIZ_EYE_THRESHOLD = 0.45; // Loosened to allow looking at left video / right editor
-                const DOWN_EYE_THRESHOLD = 0.55; // Loosened for keyboard/editor focus
-                const UP_EYE_THRESHOLD = 0.30; 
+                const HORIZ_EYE_THRESHOLD = 0.38; // Balanced for split-screen
+                const DOWN_EYE_THRESHOLD = 0.50; // Balanced for editor focus
+                const UP_EYE_THRESHOLD = 0.25; 
                 let suspicionIncrement = 0;
 
-                // 1. Highly suspicious: Looking UP/DOWN (pitch heavily skewed, or eyes looking up/down)
-                // pitchRatio becomes small (< 1.0) when looking UP. pitchRatio becomes large (> 1.0) when looking DOWN.
-                if (pitchRatio > 4.5 || pitchRatio < 0.40 || lookDown > DOWN_EYE_THRESHOLD || lookUp > UP_EYE_THRESHOLD) {
-                  suspicionIncrement = 1; // Builds normally
-                }
-                // 2. Mildly suspicious: Looking LEFT/RIGHT
-                else if (yawRatio > 6.0 || yawRatio < 0.25 || lookRight > HORIZ_EYE_THRESHOLD || lookLeft > HORIZ_EYE_THRESHOLD) {
-                  suspicionIncrement = 1; // Builds normally
+                // 1. Check for Looking Away
+                const isLookingAway = 
+                  pitchRatio > 4.0 || pitchRatio < 0.45 || 
+                  yawRatio > 5.0 || yawRatio < 0.28 || 
+                  lookDown > DOWN_EYE_THRESHOLD || lookUp > UP_EYE_THRESHOLD || 
+                  lookRight > HORIZ_EYE_THRESHOLD || lookLeft > HORIZ_EYE_THRESHOLD;
+
+                if (isLookingAway) {
+                  if (isTyping) {
+                    suspicionIncrement = 0; // Pause suspicion build-up when typing
+                  } else {
+                    // Check for extreme looks (blatant cheating)
+                    const isSevere = pitchRatio > 5.5 || pitchRatio < 0.30 || yawRatio > 7.0 || yawRatio < 0.18;
+                    suspicionIncrement = isSevere ? 3 : 1; 
+                  }
                 }
 
                 if (suspicionIncrement > 0) {
                   consecutiveLookingAwayFrames.current += suspicionIncrement;
-                  if (consecutiveLookingAwayFrames.current >= 150) { // Increased to ~5 seconds (at 30fps)
+                  if (consecutiveLookingAwayFrames.current >= 100) { // ~3.3s grace period for mild, ~1s for severe
                     playWarningSound(
                       "Warning! You must look directly at the screen.",
                     );
@@ -191,9 +198,9 @@ export const useFaceTracking = (
                     consecutiveLookingAwayFrames.current = 0;
                   }
                 } else {
-                  // Cool down suspicion quickly if they look forward
-                  // Decay by 3 per frame allows for brief natural head movements
-                  consecutiveLookingAwayFrames.current = Math.max(0, consecutiveLookingAwayFrames.current - 3);
+                  // Cool down suspicion
+                  const decayRate = isTyping ? 5 : 3;
+                  consecutiveLookingAwayFrames.current = Math.max(0, consecutiveLookingAwayFrames.current - decayRate);
                 }
               }
             }
@@ -212,7 +219,7 @@ export const useFaceTracking = (
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [videoElement, isModelLoaded, faceLandmarker, call]);
+  }, [videoElement, isModelLoaded, faceLandmarker, call, isTyping]);
 
   return { isModelLoaded };
 };

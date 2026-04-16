@@ -39,6 +39,7 @@ function MeetingRoom() {
   const router = useRouter();
   const [layout, setLayout] = useState<"grid" | "speaker">("speaker");
   const [showParticipants, setShowParticipants] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const { useCallCallingState, useLocalParticipant } = useCallStateHooks();
 
   const callingState = useCallCallingState();
@@ -68,6 +69,7 @@ function MeetingRoom() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { isModelLoaded } = useFaceTracking(videoRef.current, {
     enabled: isCandidate,
+    isTyping,
   });
 
   useEffect(() => {
@@ -246,7 +248,7 @@ function MeetingRoom() {
         <ResizableHandle withHandle />
 
         <ResizablePanel defaultSize={65} minSize={25}>
-          <CodeEditor />
+          <CodeEditor isCandidate={isCandidate} onTypingStatusChange={setIsTyping} />
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>
