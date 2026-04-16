@@ -6,7 +6,7 @@ import {
   SpeakerLayout,
   useCallStateHooks,
 } from "@stream-io/video-react-sdk";
-import { LayoutListIcon, LoaderIcon, UsersIcon } from "lucide-react";
+import { LayoutListIcon, LoaderIcon, UsersIcon, CopyIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import toast from "react-hot-toast";
@@ -197,6 +197,19 @@ function MeetingRoom() {
                     onClick={() => setShowParticipants(!showParticipants)}
                   >
                     <UsersIcon className="size-4" />
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    title="Copy Meeting Link"
+                    size="icon"
+                    className="size-10"
+                    onClick={() => {
+                      navigator.clipboard.writeText(window.location.href);
+                      toast.success("Meeting link copied to clipboard");
+                    }}
+                  >
+                    <CopyIcon className="size-4" />
                   </Button>
 
                   <EndCallButton />

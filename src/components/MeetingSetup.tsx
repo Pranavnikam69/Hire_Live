@@ -5,7 +5,8 @@ import {
 } from "@stream-io/video-react-sdk";
 import { useEffect, useState } from "react";
 import { Card } from "./ui/card";
-import { CameraIcon, MicIcon, SettingsIcon } from "lucide-react";
+import { CameraIcon, MicIcon, SettingsIcon, CopyIcon } from "lucide-react";
+import toast from "react-hot-toast";
 import { Switch } from "./ui/switch";
 import { Button } from "./ui/button";
 import { unlockAudio } from "@/lib/audio";
@@ -72,8 +73,22 @@ function MeetingSetup({ onSetupComplete }: { onSetupComplete: () => void }) {
             <div className="h-full flex flex-col">
               {/* MEETING DETAILS  */}
               <div>
-                <h2 className="text-xl font-semibold mb-1">Meeting Details</h2>
-                <p className="text-sm text-muted-foreground break-all">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold mb-1">Meeting Details</h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-2"
+                    onClick={() => {
+                      navigator.clipboard.writeText(window.location.href);
+                      toast.success("Meeting link copied to clipboard");
+                    }}
+                  >
+                    <CopyIcon className="h-4 w-4" />
+                    Copy Link
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground break-all mt-2">
                   {call.id}
                 </p>
               </div>
