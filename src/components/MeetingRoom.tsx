@@ -100,6 +100,15 @@ function MeetingRoom() {
     return () => unsubscribe();
   }, [call, isInterviewer]);
 
+  useEffect(() => {
+    if (isCandidate && isModelLoaded) {
+      const interval = setInterval(() => {
+        console.log("[AntiCheat] Heartbeat: Monitor Active");
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [isCandidate, isModelLoaded]);
+
   if (callingState !== CallingState.JOINED) {
     return (
       <div className="h-96 flex items-center justify-center">

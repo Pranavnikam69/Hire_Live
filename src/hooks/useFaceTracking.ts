@@ -61,152 +61,100 @@ export const useFaceTracking = (
 
     const predict = () => {
       if (videoElement.readyState >= 2) {
-        let startTimeMs = performance.now();
-        if (lastVideoTimeRef.current !== videoElement.currentTime) {
-          lastVideoTimeRef.current = videoElement.currentTime;
+        const startTimeMs = performance.now();
+        
+        try {
+          const results = faceLandmarker.detectForVideo(videoElement, startTimeMs);
 
-          try {
-            // Pass the video element to the detector
-            const results = faceLandmarker.detectForVideo(
-              videoElement,
-              startTimeMs,
-            );
-
-            // Evaluate results:
-            if (results.faceLandmarks.length === 0) {
-              consecutiveNoFaceFrames.current++;
-              consecutiveMultiFaceFrames.current = 0;
-              // Trigger warning after ~3 seconds (90 frames)
-              if (consecutiveNoFaceFrames.current === 90) {
-                playWarningSound(
-                  "Warning! Face not detected. Please look at the camera immediately.",
-                );
-                toast.error(
-                  "Warning: Face not detected. Please look at the camera!",
-                  {
-                    id: "no-face-warning",
-                    duration: 3000,
-                  },
-                );
-                call?.sendCustomEvent({
-                  type: "cheat-alert",
-                  reason: "Student's face is not visible!"
-                });
-                // reset counter to allow subsequent warnings
-                consecutiveNoFaceFrames.current = 0;
-              }
-            } else if (results.faceLandmarks.length > 1) {
-              consecutiveMultiFaceFrames.current++;
+          if (results.faceLandmarks.length === 0) {
+            consecutiveNoFaceFrames.current++;
+            consecutiveMultiFaceFrames.current = 0;
+            if (consecutiveNoFaceFrames.current === 90) {
+              playWarningSound("Warning! Face not detected.");
+              toast.error("Warning: Face not detected!", { id: "no-face", duration: 3000 });
+              call?.sendCustomEvent({ type: "cheat-alert", reason: "Face is not visible!" });
               consecutiveNoFaceFrames.current = 0;
-              if (consecutiveMultiFaceFrames.current === 60) {
-                playWarningSound(
-                  "Warning! Multiple faces detected in the interview.",
-                );
-                toast.error("Warning: Multiple faces detected!", {
-                  id: "multi-face-warning",
-                  duration: 3000,
-                });
-                call?.sendCustomEvent({
-                  type: "cheat-alert",
-                  reason: "Multiple faces detected!"
-                });
-                consecutiveMultiFaceFrames.current = 0;
-              }
-            } else {
-              // Normal (1 face)
-              consecutiveNoFaceFrames.current = 0;
+            }
+          } else if (results.faceLandmarks.length > 1) {
+            consecutiveMultiFaceFrames.current++;
+            consecutiveNoFaceFrames.current = 0;
+            if (consecutiveMultiFaceFrames.current === 60) {
+              playWarningSound("Warning! Multiple faces detected.");
+              toast.error("Warning: Multiple faces detected!", { id: "multi-face", duration: 3000 });
+              call?.sendCustomEvent({ type: "cheat-alert", reason: "Multiple faces detected!" });
               consecutiveMultiFaceFrames.current = 0;
+            }
+          } else {
+            consecutiveNoFaceFrames.current = 0;
+            consecutiveMultiFaceFrames.current = 0;
 
-              // Default eye tracking variables
-              let lookRight = 0, lookLeft = 0, lookUp = 0, lookDown = 0;
+            let lookRight = 0, lookLeft = 0, lookUp = 0, lookDown = 0;
+            if (results.faceBlendshapes && results.faceBlendshapes[0]) {
+              const blendshapes = results.faceBlendshapes[0].categories;
+              lookRight = Math.max(
+                blendshapes.find(b => b.categoryName === "eyeLookInLeft")?.score || 0,
+                blendshapes.find(b => b.categoryName === "eyeLookOutRight")?.score || 0
+              );
+              lookLeft = Math.max(
+                blendshapes.find(b => b.categoryName === "eyeLookOutLeft")?.score || 0,
+                blendshapes.find(b => b.categoryName === "eyeLookInRight")?.score || 0
+              );
+              lookUp = Math.max(
+                blendshapes.find(b => b.categoryName === "eyeLookUpLeft")?.score || 0,
+                blendshapes.find(b => b.categoryName === "eyeLookUpRight")?.score || 0
+              );
+              lookDown = Math.max(
+                blendshapes.find(b => b.categoryName === "eyeLookDownLeft")?.score || 0,
+                blendshapes.find(b => b.categoryName === "eyeLookDownRight")?.score || 0
+              );
+            }
 
-              // Check blendshapes for eye tracking
-              if (results.faceBlendshapes && results.faceBlendshapes[0]) {
-                const blendshapes = results.faceBlendshapes[0].categories;
-                
-                const eyeLookInLeft = blendshapes.find(b => b.categoryName === "eyeLookInLeft")?.score || 0;
-                const eyeLookOutRight = blendshapes.find(b => b.categoryName === "eyeLookOutRight")?.score || 0;
-                const eyeLookOutLeft = blendshapes.find(b => b.categoryName === "eyeLookOutLeft")?.score || 0;
-                const eyeLookInRight = blendshapes.find(b => b.categoryName === "eyeLookInRight")?.score || 0;
-                const eyeLookUpLeft = blendshapes.find(b => b.categoryName === "eyeLookUpLeft")?.score || 0;
-                const eyeLookUpRight = blendshapes.find(b => b.categoryName === "eyeLookUpRight")?.score || 0;
-                const eyeLookDownLeft = blendshapes.find(b => b.categoryName === "eyeLookDownLeft")?.score || 0;
-                const eyeLookDownRight = blendshapes.find(b => b.categoryName === "eyeLookDownRight")?.score || 0;
+            const landmarks = results.faceLandmarks[0];
+            if (landmarks && landmarks.length > 454) {
+              const nose = landmarks[1];
+              const leftEdge = landmarks[234];
+              const rightEdge = landmarks[454];
+              const topEdge = landmarks[10];
+              const bottomEdge = landmarks[152];
 
-                // Use Math.max instead of average so if even ONE eye rolls up, it triggers
-                lookRight = Math.max(eyeLookInLeft, eyeLookOutRight);
-                lookLeft = Math.max(eyeLookOutLeft, eyeLookInRight);
-                lookUp = Math.max(eyeLookUpLeft, eyeLookUpRight);
-                lookDown = Math.max(eyeLookDownLeft, eyeLookDownRight);
-              }
+              const yawRatio = Math.abs(nose.x - leftEdge.x) / Math.abs(rightEdge.x - nose.x);
+              const pitchRatio = Math.abs(topEdge.y - nose.y) / Math.abs(bottomEdge.y - nose.y);
 
-              // Check Eyesight / Head Pose (Looking Away)
-              const landmarks = results.faceLandmarks[0];
-              if (landmarks && landmarks.length > 454) {
-                const nose = landmarks[1];
-                const leftEdge = landmarks[234];
-                const rightEdge = landmarks[454];
-                const topEdge = landmarks[10];
-                const bottomEdge = landmarks[152];
+              const HORIZ_EYE_THRESHOLD = 0.32;
+              const DOWN_EYE_THRESHOLD = 0.42;
+              let suspicionIncrement = 0;
 
-                // Basic Yaw calculation (left/right head turn)
-                const leftDist = Math.abs(nose.x - leftEdge.x);
-                const rightDist = Math.abs(rightEdge.x - nose.x);
-                const yawRatio = leftDist / rightDist;
+              const isLookingAway = 
+                pitchRatio > 3.2 || pitchRatio < 0.55 || 
+                yawRatio > 3.2 || yawRatio < 0.32 || 
+                lookDown > DOWN_EYE_THRESHOLD || lookUp > 0.25 || 
+                lookRight > HORIZ_EYE_THRESHOLD || lookLeft > HORIZ_EYE_THRESHOLD;
 
-                // Basic Pitch calculation (up/down head turn)
-                const topDist = Math.abs(topEdge.y - nose.y);
-                const botDist = Math.abs(bottomEdge.y - nose.y);
-                const pitchRatio = topDist / botDist;
-
-                const HORIZ_EYE_THRESHOLD = 0.32; // Balanced-Strict
-                const DOWN_EYE_THRESHOLD = 0.42; // Balanced-Strict
-                const UP_EYE_THRESHOLD = 0.25; 
-                let suspicionIncrement = 0;
-
-                // 1. Check for Looking Away
-                const isLookingAway = 
-                  pitchRatio > 3.2 || pitchRatio < 0.55 || 
-                  yawRatio > 3.2 || yawRatio < 0.32 || 
-                  lookDown > DOWN_EYE_THRESHOLD || lookUp > UP_EYE_THRESHOLD || 
-                  lookRight > HORIZ_EYE_THRESHOLD || lookLeft > HORIZ_EYE_THRESHOLD;
-
-                if (isLookingAway) {
-                  if (isTyping) {
-                    suspicionIncrement = 0; // Still pause for typing safety
-                  } else {
-                    // Check for extreme looks (blatant cheating) - Tighter severe detection
-                    const isSevere = pitchRatio > 4.5 || pitchRatio < 0.40 || yawRatio > 5.0 || yawRatio < 0.20;
-                    suspicionIncrement = isSevere ? 3 : 1; 
-                  }
-                }
-
-                if (suspicionIncrement > 0) {
-                  consecutiveLookingAwayFrames.current += suspicionIncrement;
-                  if (consecutiveLookingAwayFrames.current >= 80) { // ~2.6s grace period
-                    playWarningSound(
-                      "Warning! You must look directly at the screen.",
-                    );
-                    toast.error("Warning: Please look at the screen!", {
-                      id: "looking-away-warning",
-                      duration: 3000,
-                    });
-                    call?.sendCustomEvent({
-                      type: "cheat-alert",
-                      reason: "Student is looking away from the screen!"
-                    });
-                    consecutiveLookingAwayFrames.current = 0;
-                  }
+              if (isLookingAway) {
+                if (isTyping) {
+                  suspicionIncrement = 0;
                 } else {
-                  // Cool down suspicion
-                  const decayRate = isTyping ? 5 : 3;
-                  consecutiveLookingAwayFrames.current = Math.max(0, consecutiveLookingAwayFrames.current - decayRate);
+                  const isSevere = pitchRatio > 4.5 || pitchRatio < 0.40 || yawRatio > 5.0 || yawRatio < 0.20;
+                  suspicionIncrement = isSevere ? 3 : 1; 
                 }
+              }
+
+              if (suspicionIncrement > 0) {
+                consecutiveLookingAwayFrames.current += suspicionIncrement;
+                if (consecutiveLookingAwayFrames.current >= 80) {
+                  playWarningSound("Warning! Look at the screen.");
+                  toast.error("Warning: Please look at the screen!", { id: "looking-away", duration: 3000 });
+                  call?.sendCustomEvent({ type: "cheat-alert", reason: "Student is looking away!" });
+                  consecutiveLookingAwayFrames.current = 0;
+                }
+              } else {
+                const decayRate = isTyping ? 5 : 3;
+                consecutiveLookingAwayFrames.current = Math.max(0, consecutiveLookingAwayFrames.current - decayRate);
               }
             }
-          } catch (e) {
-            console.error("Face detection error: ", e);
           }
+        } catch (e) {
+          console.error("Face tracking error:", e);
         }
       }
       animationRef.current = requestAnimationFrame(predict);

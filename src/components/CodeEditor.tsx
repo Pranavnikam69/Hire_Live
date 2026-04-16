@@ -84,7 +84,7 @@ function CodeEditor({
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = setTimeout(() => {
         onTypingStatusChange(false);
-      }, 3000); // 3 seconds of inactivity before removing "typing" status
+      }, 2000); // 2 seconds of inactivity before removing "typing" status
     }
   };
 
