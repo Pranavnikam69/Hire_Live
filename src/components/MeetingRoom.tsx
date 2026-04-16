@@ -86,7 +86,7 @@ function MeetingRoom() {
   useEffect(() => {
     if (!call) return;
     const unsubscribe = call.on("custom", (event) => {
-      if (event.type === "custom" && event.custom.type === "cheat-alert" && isInterviewer) {
+      if (event.custom?.type === "cheat-alert" && isInterviewer) {
         toast.error(`Anti-Cheat Alert: ${event.custom.reason}`, {
           duration: 6000,
           position: "top-center"

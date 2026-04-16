@@ -18,8 +18,7 @@ function CodeEditor() {
     if (!call) return;
 
     const unsubscribe = call.on("custom", (event) => {
-      // The event.type will be "custom" and the payload will be in event.custom
-      if (event.type === "custom" && event.custom.type === "codeSync") {
+      if (event.custom?.type === "codeSync") {
         const { code: syncedCode, language: syncedLanguage, questionId: syncedQuestionId } = event.custom;
 
         if (syncedQuestionId) {
