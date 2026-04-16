@@ -13,7 +13,7 @@ function UserInfo({ user }: { user: User }) {
           <UserCircleIcon className="h-4 w-4" />
         </AvatarFallback>
       </Avatar>
-      <span>{user.name}</span>
+      <span>{user.name || user.email.split("@")[0]}</span>
     </div>
   );
 }
