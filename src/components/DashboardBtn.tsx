@@ -5,7 +5,7 @@ import { Button } from "./ui/button";
 import { SparklesIcon } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 
-function DasboardBtn() {
+function DashboardBtn() {
   const { isCandidate, isLoading } = useUserRole();
 
   if (isCandidate || isLoading) return null;
@@ -19,4 +19,4 @@ function DasboardBtn() {
     </Link>
   );
 }
-export default DasboardBtn;
+export default DashboardBtn;

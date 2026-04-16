@@ -30,12 +30,25 @@ export default function Home() {
         setModalType("join");
         setShowModal(true);
         break;
+      case "Dashboard":
+        router.push("/dashboard");
+        break;
       default:
         router.push(`/${title.toLowerCase()}`);
     }
   };
 
   if (isLoading) return <LoaderUI />;
+
+  const filteredActions = QUICK_ACTIONS.filter((action) => {
+    if (isInterviewer) {
+      return true; // Interviewers see everything including Dashboard
+    }
+    if (isCandidate) {
+      return action.title === "Join Interview"; // Candidates ONLY see Join Interview
+    }
+    return action.title === "Join Interview"; // Default fallback
+  });
 
   return (
     <div className="container max-w-7xl mx-auto p-6">
@@ -51,8 +64,8 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {QUICK_ACTIONS.map((action) => (
+      <div className={`grid sm:grid-cols-2 lg:grid-cols-${filteredActions.length} gap-6`}>
+        {filteredActions.map((action) => (
           <ActionCard
             key={action.title}
             action={action}

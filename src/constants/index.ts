@@ -1,4 +1,4 @@
-import { Clock, Code2, Calendar, Users } from "lucide-react";
+import { Clock, Code2, Calendar, Users, Sparkles } from "lucide-react";
 
 export const INTERVIEW_CATEGORY = [
   { id: "upcoming", title: "Upcoming Interviews", variant: "outline" },
@@ -55,6 +55,13 @@ export const QUICK_ACTIONS = [
     description: "Access past interviews",
     color: "orange-500",
     gradient: "from-orange-500/10 via-orange-500/5 to-transparent",
+  },
+  {
+    icon: Sparkles,
+    title: "Dashboard",
+    description: "Manage candidate reviews",
+    color: "emerald-500",
+    gradient: "from-emerald-500/10 via-emerald-500/5 to-transparent",
   },
 ];
 
