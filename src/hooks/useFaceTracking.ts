@@ -159,31 +159,31 @@ export const useFaceTracking = (
                 const botDist = Math.abs(bottomEdge.y - nose.y);
                 const pitchRatio = topDist / botDist;
 
-                const HORIZ_EYE_THRESHOLD = 0.38; // Balanced for split-screen
-                const DOWN_EYE_THRESHOLD = 0.50; // Balanced for editor focus
+                const HORIZ_EYE_THRESHOLD = 0.32; // Balanced-Strict
+                const DOWN_EYE_THRESHOLD = 0.42; // Balanced-Strict
                 const UP_EYE_THRESHOLD = 0.25; 
                 let suspicionIncrement = 0;
 
                 // 1. Check for Looking Away
                 const isLookingAway = 
-                  pitchRatio > 4.0 || pitchRatio < 0.45 || 
-                  yawRatio > 5.0 || yawRatio < 0.28 || 
+                  pitchRatio > 3.2 || pitchRatio < 0.55 || 
+                  yawRatio > 3.2 || yawRatio < 0.32 || 
                   lookDown > DOWN_EYE_THRESHOLD || lookUp > UP_EYE_THRESHOLD || 
                   lookRight > HORIZ_EYE_THRESHOLD || lookLeft > HORIZ_EYE_THRESHOLD;
 
                 if (isLookingAway) {
                   if (isTyping) {
-                    suspicionIncrement = 0; // Pause suspicion build-up when typing
+                    suspicionIncrement = 0; // Still pause for typing safety
                   } else {
-                    // Check for extreme looks (blatant cheating)
-                    const isSevere = pitchRatio > 5.5 || pitchRatio < 0.30 || yawRatio > 7.0 || yawRatio < 0.18;
+                    // Check for extreme looks (blatant cheating) - Tighter severe detection
+                    const isSevere = pitchRatio > 4.5 || pitchRatio < 0.40 || yawRatio > 5.0 || yawRatio < 0.20;
                     suspicionIncrement = isSevere ? 3 : 1; 
                   }
                 }
 
                 if (suspicionIncrement > 0) {
                   consecutiveLookingAwayFrames.current += suspicionIncrement;
-                  if (consecutiveLookingAwayFrames.current >= 100) { // ~3.3s grace period for mild, ~1s for severe
+                  if (consecutiveLookingAwayFrames.current >= 80) { // ~2.6s grace period
                     playWarningSound(
                       "Warning! You must look directly at the screen.",
                     );
