@@ -14,12 +14,29 @@ export const syncUser = mutation({
       .filter((q) => q.eq(q.field("clerkId"), args.clerkId))
       .first();
 
-    if (existingUser) return;
+    if (existingUser) return existingUser._id;
 
-    return await ctx.db.insert("users", {
+    const userId = await ctx.db.insert("users", {
       ...args,
       role: "candidate",
     });
+
+    return userId;
+  },
+});
+
+export const promoteToInterviewer = mutation({
+  args: { clerkId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (!user) throw new Error("User not found");
+
+    await ctx.db.patch(user._id, { role: "interviewer" });
+    return { success: true };
   },
 });
 
