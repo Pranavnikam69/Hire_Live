@@ -39,8 +39,8 @@ export const getCandidateInfo = (users: User[], candidateId: string) => {
     initials:
       candidate?.name
         ?.split(" ")
-        .map((n) => n[0])
-        .join("") || "UC",
+        ?.map((n) => n[0])
+        ?.join("") || "UC",
   };
 };
 
@@ -52,8 +52,8 @@ export const getInterviewerInfo = (users: User[], interviewerId: string) => {
     initials:
       interviewer?.name
         ?.split(" ")
-        .map((n) => n[0])
-        .join("") || "UI",
+        ?.map((n) => n[0])
+        ?.join("") || "UI",
   };
 };
 
