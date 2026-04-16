@@ -1,9 +1,11 @@
 import { useEffect, useState, useRef } from "react";
 import toast from "react-hot-toast";
 import { playWarningSound } from "@/lib/audio";
+import { useCall } from "@stream-io/video-react-sdk";
 
 export const useAntiCheat = ({ enabled = true, onKick }: { enabled?: boolean, onKick?: () => void } = {}) => {
   const [isFullscreen, setIsFullscreen] = useState(true);
+  const call = useCall();
   const [warnings, setWarnings] = useState(0);
   const onKickRef = useRef(onKick);
 
@@ -36,6 +38,11 @@ export const useAntiCheat = ({ enabled = true, onKick }: { enabled?: boolean, on
       toast.error(`${toastMessage} (Warning ${warningCount}/3)`, {
         duration: 4000,
         position: "top-center",
+      });
+
+      call?.sendCustomEvent({
+        type: "cheat-alert",
+        reason: toastMessage
       });
     };
 
@@ -146,7 +153,7 @@ export const useAntiCheat = ({ enabled = true, onKick }: { enabled?: boolean, on
         handleFullscreenChange,
       );
     };
-  }, [enabled]);
+  }, [enabled, call]);
 
   return { isFullscreen, setIsFullscreen, warnings };
 };

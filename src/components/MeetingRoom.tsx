@@ -1,5 +1,8 @@
 import {
-  CallControls,
+  ToggleAudioButton,
+  ToggleVideoButton,
+  CancelCallButton,
+  SpeakingWhileMutedNotification,
   CallingState,
   CallParticipantsList,
   PaginatedGridLayout,
@@ -79,6 +82,20 @@ function MeetingRoom() {
       videoRef.current.srcObject = null;
     }
   }, [localParticipant?.videoStream]);
+
+  useEffect(() => {
+    if (!call) return;
+    const unsubscribe = call.on("custom", (event) => {
+      if (event.type === "custom" && event.custom.type === "cheat-alert" && isInterviewer) {
+        toast.error(`Anti-Cheat Alert: ${event.custom.reason}`, {
+          duration: 6000,
+          position: "top-center"
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [call, isInterviewer]);
 
   if (callingState !== CallingState.JOINED) {
     return (
@@ -171,7 +188,11 @@ function MeetingRoom() {
           <div className="absolute bottom-4 left-0 right-0">
             <div className="flex flex-col items-center gap-4">
               <div className="flex items-center gap-2 flex-wrap justify-center px-4">
-                <CallControls onLeave={() => router.push("/")} />
+                <SpeakingWhileMutedNotification>
+                  <ToggleAudioButton />
+                </SpeakingWhileMutedNotification>
+                <ToggleVideoButton />
+                <CancelCallButton onLeave={() => router.push("/")} />
 
                 <div className="flex items-center gap-2">
                   <DropdownMenu>
