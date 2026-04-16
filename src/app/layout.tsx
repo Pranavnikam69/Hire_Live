@@ -7,6 +7,7 @@ import ConvexClerkProvider from "@/components/providers/ConvexClerkProvider";
 import Navbar from "@/components/Navbar";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { Toaster } from "react-hot-toast";
+import UserSync from "@/components/UserSync";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -41,6 +42,7 @@ export default function RootLayout({
           >
             <SignedIn>
               <div className="min-h-screen">
+                <UserSync />
                 <Navbar />
                 <main className="px-4 sm:px-6 lg:px-8">{children}</main>
               </div>
