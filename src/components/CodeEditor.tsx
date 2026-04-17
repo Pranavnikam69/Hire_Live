@@ -18,6 +18,9 @@ function CodeEditor({
   onTypingStatusChange: (isTyping: boolean) => void;
 }) {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSyncRef = useRef(0);
+  const pendingSyncRef = useRef<NodeJS.Timeout | null>(null);
+
   const [selectedQuestion, setSelectedQuestion] = useState(CODING_QUESTIONS[0]);
   const [language, setLanguage] = useState<"javascript" | "python" | "java">(LANGUAGES[0].id);
   const [code, setCode] = useState(selectedQuestion.starterCode[language]);
@@ -69,14 +72,24 @@ function CodeEditor({
 
   const handleCodeChange = (value: string | undefined) => {
     const newCode = value || "";
-    // Only send if the code actually changed, to prevent infinite loops from the sync event
     if (newCode === code) return;
     setCode(newCode);
 
-    call?.sendCustomEvent({
-      type: "codeSync",
-      code: newCode,
-    });
+    // Throttle Syncing (Max 2 updates per second) to avoid Stream API rate limits
+    const now = Date.now();
+    const timeSinceLastSync = now - lastSyncRef.current;
+    
+    if (timeSinceLastSync > 500) {
+      lastSyncRef.current = now;
+      call?.sendCustomEvent({ type: "codeSync", code: newCode });
+      if (pendingSyncRef.current) clearTimeout(pendingSyncRef.current);
+    } else {
+      if (pendingSyncRef.current) clearTimeout(pendingSyncRef.current);
+      pendingSyncRef.current = setTimeout(() => {
+        lastSyncRef.current = Date.now();
+        call?.sendCustomEvent({ type: "codeSync", code: newCode });
+      }, 500 - timeSinceLastSync);
+    }
 
     // Typing Activity Detection
     if (isCandidate) {
