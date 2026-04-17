@@ -39,6 +39,8 @@ export const useFaceTracking = (
             outputFaceBlendshapes: true,
             runningMode: "VIDEO",
             numFaces: 2, // We want to detect if >1 person is in the frame
+            minFaceDetectionConfidence: 0.3, // Lowered for side profile sensitivity
+            minFacePresenceConfidence: 0.3, // Lowered for side profile sensitivity
           },
         );
         setFaceLandmarker(landmarker);
@@ -164,7 +166,8 @@ export const useFaceTracking = (
                   // 5-Second Grace Mode (Inc: 0.5, Target: 80)
                   suspicionIncrement = 0.5; 
                 } else if (isTyping) {
-                  suspicionIncrement = 0; // Typing still gets priority pause
+                  // Coding Grace Mode: Trigger after ~5 seconds of looking away
+                  suspicionIncrement = 0.5; 
                 } else {
                   // Strict Normal Mode
                   const isSevere = pitchRatio > 4.5 || pitchRatio < 0.50 || yawRatio > 7.5 || yawRatio < 0.20;
