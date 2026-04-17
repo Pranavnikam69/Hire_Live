@@ -78,8 +78,9 @@ function MeetingRoom() {
   // Detect if the student (local participant) is NOT speaking
   const isLocalParticipantSpeaking = localParticipant?.isSpeaking;
 
-  // Face anti-cheat turns OFF only when (Interviewer is talking/recently talked) AND (Student is silent)
-  const shouldSuppressFaceAntiCheat = isInterviewerSpeakingRecently && !isLocalParticipantSpeaking;
+  // Face anti-cheat uses conversational lenience strictly when Interviewer is talking/recently talked.
+  // We ignore local speaking audio state here because background noise causes it to drop suppression unexpectedly!
+  const shouldSuppressFaceAntiCheat = isInterviewerSpeakingRecently;
 
   const handleKick = async () => {
     if (call) {
