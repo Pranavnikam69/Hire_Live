@@ -54,16 +54,32 @@ function MeetingRoom() {
   const isInterviewer = call?.state?.createdBy?.id === user?.id || isInterviewerRole;
   const isCandidate = !isInterviewer;
 
-  // Detect if any other participant (interviewer) is speaking
-  const isInterviewerSpeaking = participants.some(
-    (p) => p.isSpeaking && p.userId !== user?.id
-  );
+  const [isInterviewerSpeakingRecently, setIsInterviewerSpeakingRecently] = useState(false);
+  const lastInterviewerSpeakingTimeRef = useRef(0);
+
+  useEffect(() => {
+    const isSpeaking = participants.some((p) => p.isSpeaking && p.userId !== user?.id);
+    if (isSpeaking) {
+      lastInterviewerSpeakingTimeRef.current = Date.now();
+      setIsInterviewerSpeakingRecently(true);
+    }
+  }, [participants, user?.id]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const isRecentlySpeaking = Date.now() - lastInterviewerSpeakingTimeRef.current < 3000;
+      if (isRecentlySpeaking !== isInterviewerSpeakingRecently) {
+        setIsInterviewerSpeakingRecently(isRecentlySpeaking);
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [isInterviewerSpeakingRecently]);
 
   // Detect if the student (local participant) is NOT speaking
   const isLocalParticipantSpeaking = localParticipant?.isSpeaking;
 
-  // Face anti-cheat turns OFF only when (Interviewer is talking) AND (Student is silent)
-  const shouldSuppressFaceAntiCheat = isInterviewerSpeaking && !isLocalParticipantSpeaking;
+  // Face anti-cheat turns OFF only when (Interviewer is talking/recently talked) AND (Student is silent)
+  const shouldSuppressFaceAntiCheat = isInterviewerSpeakingRecently && !isLocalParticipantSpeaking;
 
   const handleKick = async () => {
     if (call) {
