@@ -69,39 +69,39 @@ export const useFaceTracking = (
         try {
           const results = faceLandmarker.detectForVideo(videoElement, startTimeMs);
 
-          if (shouldSuppressFaceAntiCheat) {
-            consecutiveNoFaceFrames.current = 0;
-            consecutiveMultiFaceFrames.current = 0;
-            consecutiveLookingAwayFrames.current = 0;
-            consecutiveSpeakingFrames.current = 0;
-            return;
-          }
-
           if (results.faceLandmarks.length === 0) {
-            consecutiveNoFaceFrames.current++;
-            consecutiveMultiFaceFrames.current = 0;
-            if (consecutiveNoFaceFrames.current === 90) {
-              playWarningSound("Warning! Face not detected.");
-              toast.error("Warning: Face not detected!", { id: "no-face", duration: 3000 });
-              call?.sendCustomEvent({ 
-                type: "cheat-alert", 
-                reason: "Face is not visible!",
-                timestamp: new Date().toISOString()
-              });
+            if (shouldSuppressFaceAntiCheat) {
               consecutiveNoFaceFrames.current = 0;
+            } else {
+              consecutiveNoFaceFrames.current++;
+              consecutiveMultiFaceFrames.current = 0;
+              if (consecutiveNoFaceFrames.current === 90) {
+                playWarningSound("Warning! Face not detected.");
+                toast.error("Warning: Face not detected!", { id: "no-face", duration: 3000 });
+                call?.sendCustomEvent({ 
+                  type: "cheat-alert", 
+                  reason: "Face is not visible!",
+                  timestamp: new Date().toISOString()
+                });
+                consecutiveNoFaceFrames.current = 0;
+              }
             }
           } else if (results.faceLandmarks.length > 1) {
-            consecutiveMultiFaceFrames.current++;
-            consecutiveNoFaceFrames.current = 0;
-            if (consecutiveMultiFaceFrames.current === 60) {
-              playWarningSound("Warning! Multiple faces detected.");
-              toast.error("Warning: Multiple faces detected!", { id: "multi-face", duration: 3000 });
-              call?.sendCustomEvent({ 
-                type: "cheat-alert", 
-                reason: "Multiple faces detected!",
-                timestamp: new Date().toISOString()
-              });
+            if (shouldSuppressFaceAntiCheat) {
               consecutiveMultiFaceFrames.current = 0;
+            } else {
+              consecutiveMultiFaceFrames.current++;
+              consecutiveNoFaceFrames.current = 0;
+              if (consecutiveMultiFaceFrames.current === 60) {
+                playWarningSound("Warning! Multiple faces detected.");
+                toast.error("Warning: Multiple faces detected!", { id: "multi-face", duration: 3000 });
+                call?.sendCustomEvent({ 
+                  type: "cheat-alert", 
+                  reason: "Multiple faces detected!",
+                  timestamp: new Date().toISOString()
+                });
+                consecutiveMultiFaceFrames.current = 0;
+              }
             }
           } else {
             consecutiveNoFaceFrames.current = 0;
@@ -160,8 +160,9 @@ export const useFaceTracking = (
               const pitchRatio = Math.abs(topEdge.y - nose.y) / Math.abs(bottomEdge.y - nose.y);
 
               // Dynamic Thresholds for Accuracy
-              const EYE_HORIZ_TOLERANCE_LEFT = isActuallySpeaking ? 0.62 : 0.40; // Extremely loosened when speaking to allow interviewer gaze
-              const EYE_HORIZ_TOLERANCE_RIGHT = isActuallySpeaking ? 0.62 : 0.50; // Extremely loosened when speaking
+              const isLooseMode = isActuallySpeaking || shouldSuppressFaceAntiCheat;
+              const EYE_HORIZ_TOLERANCE_LEFT = isLooseMode ? 0.62 : 0.40; // Extremely loosened to allow interviewer gaze
+              const EYE_HORIZ_TOLERANCE_RIGHT = isLooseMode ? 0.62 : 0.50; // Extremely loosened when speaking or listening
               const EYE_DOWN_TOLERANCE = 0.42;
               const EYE_UP_TOLERANCE = 0.18; 
               let suspicionIncrement = 0;
@@ -181,7 +182,17 @@ export const useFaceTracking = (
                 yawRatio > 9.5 || yawRatio < 0.12 || 
                 lookDown > 0.75 || lookRight > 0.85 || lookLeft > 0.85;
 
-              if (isActuallySpeaking) {
+              if (shouldSuppressFaceAntiCheat) {
+                // Interviewer is talking. Anti-cheat is mostly suppressed.
+                // We ONLY trigger if student maintains a sustained gaze in a cheating direction for ~3 seconds.
+                if (isSignificantMove) {
+                  suspicionIncrement = 1.0; // Rapid alert for significant moves
+                } else if (isLookingAway) {
+                  suspicionIncrement = 0.9; // ~3 second sustained gaze (0.9 hits 80 in ~88 frames)
+                } else {
+                  suspicionIncrement = 0; // Neutral - no penalty for looking forward or at interviewer
+                }
+              } else if (isActuallySpeaking) {
                 // When answering, ONLY alert for extreme/significant moves
                 if (isSignificantMove) {
                   suspicionIncrement = 1.5; // Rapid alert for significant moves
@@ -216,8 +227,8 @@ export const useFaceTracking = (
                 }
               } else {
                 // Decay suspicion: Slower when silent to catch "pulsing" cheaters
-                // When typing or speaking, we also use a slower decay (1) so that the relatively small increments (0.5 and 0.7) can accumulate correctly over time.
-                const decayRate = isTyping ? 1 : isActuallySpeaking ? 1 : 2;
+                // When typing, speaking, or listening to interviewer, we also use a slower decay (1) so that the relatively small increments (0.5 and 0.7) can accumulate correctly over time.
+                const decayRate = isTyping ? 1 : (isActuallySpeaking || shouldSuppressFaceAntiCheat) ? 1 : 2;
                 consecutiveLookingAwayFrames.current = Math.max(0, consecutiveLookingAwayFrames.current - decayRate);
               }
             }
