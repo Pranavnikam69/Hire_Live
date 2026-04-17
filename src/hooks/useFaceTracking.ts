@@ -182,24 +182,31 @@ export const useFaceTracking = (
                 yawRatio > 9.5 || yawRatio < 0.12 || 
                 lookDown > 0.75 || lookRight > 0.85 || lookLeft > 0.85;
 
+              // Conversational "Suspicious" Thresholds
+              // Differentiates looking at interviewer tile (mild tilt/eye shift) from blatant cheating (looking off-screen)
+              const isSuspiciousCheatLook =
+                lookRight > 0.65 || lookLeft > 0.65 ||  // extreme eye shift off monitor
+                yawRatio < 0.20 || yawRatio > 7.5 ||    // severe head rotation away
+                pitchRatio > 4.5 || pitchRatio < 0.50;  // severe head tilt down/up
+
               if (shouldSuppressFaceAntiCheat) {
                 // Interviewer is talking. Anti-cheat is mostly suppressed.
                 // We ONLY trigger if student maintains a sustained gaze in a cheating direction for ~3 seconds.
                 if (isSignificantMove) {
                   suspicionIncrement = 1.0; // Rapid alert for significant moves
-                } else if (isLookingAway) {
-                  suspicionIncrement = 0.9; // ~3 second sustained gaze (0.9 hits 80 in ~88 frames)
+                } else if (isSuspiciousCheatLook) {
+                  suspicionIncrement = 0.9; // ~3 second sustained gaze
                 } else {
-                  suspicionIncrement = 0; // Neutral - no penalty for looking forward or at interviewer
+                  suspicionIncrement = 0; // Neutral - perfectly safe to look around or at interviewer
                 }
               } else if (isActuallySpeaking) {
                 // When answering, ONLY alert for extreme/significant moves
                 if (isSignificantMove) {
                   suspicionIncrement = 1.5; // Rapid alert for significant moves
-                } else if (isLookingAway) {
-                  suspicionIncrement = 0.7; // Slower alert for normal looking away (~4 seconds)
+                } else if (isSuspiciousCheatLook) {
+                  suspicionIncrement = 0.7; // Alert in ~4 seconds for sustained cheating glances
                 } else {
-                  suspicionIncrement = 0;
+                  suspicionIncrement = 0; // Neutral
                 }
               } else if (isLookingAway) {
                 if (isTyping) {
