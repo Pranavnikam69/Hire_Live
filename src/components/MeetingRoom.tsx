@@ -58,22 +58,27 @@ function MeetingRoom() {
   const lastInterviewerSpeakingTimeRef = useRef(0);
 
   useEffect(() => {
-    const isSpeaking = participants.some((p) => p.isSpeaking && p.userId !== user?.id);
-    if (isSpeaking) {
+    const isInterviewerSpeaking = participants.some((p) => p.isSpeaking && p.userId !== user?.id);
+    if (isInterviewerSpeaking) {
       lastInterviewerSpeakingTimeRef.current = Date.now();
-      setIsInterviewerSpeakingRecently(true);
+      if (!isInterviewerSpeakingRecently) {
+        console.log("[AntiCheat] Interviewer is speaking. Face anti-cheat suppressed.");
+        setIsInterviewerSpeakingRecently(true);
+      }
     }
-  }, [participants, user?.id]);
+  }, [participants, user?.id, isInterviewerSpeakingRecently]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       const isRecentlySpeaking = Date.now() - lastInterviewerSpeakingTimeRef.current < 3000;
-      if (isRecentlySpeaking !== isInterviewerSpeakingRecently) {
-        setIsInterviewerSpeakingRecently(isRecentlySpeaking);
+      if (!isRecentlySpeaking && isInterviewerSpeakingRecently) {
+        console.log("[AntiCheat] Interviewer stopped speaking. Resuming strict normal mode.");
+        setIsInterviewerSpeakingRecently(false);
       }
     }, 500);
     return () => clearInterval(interval);
   }, [isInterviewerSpeakingRecently]);
+
 
   // Detect if the student (local participant) is NOT speaking
   const isLocalParticipantSpeaking = localParticipant?.isSpeaking;

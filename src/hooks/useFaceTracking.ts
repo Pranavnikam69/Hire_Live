@@ -183,14 +183,13 @@ export const useFaceTracking = (
                 lookDown > 0.75 || lookRight > 0.85 || lookLeft > 0.85;
 
               if (shouldSuppressFaceAntiCheat) {
-                // Interviewer is talking. Anti-cheat is mostly suppressed.
-                // We ONLY trigger if student maintains a sustained gaze in a cheating direction for ~3 seconds.
+                // Interviewer is talking. Anti-cheat is heavily suppressed.
                 if (isSignificantMove) {
-                  suspicionIncrement = 1.0; // Rapid alert for significant moves
-                } else if (isLookingAway) {
-                  suspicionIncrement = 0.9; // ~3 second sustained gaze
+                  // Only extreme/blatant moves like turning head 90 degrees backward will build any suspicion
+                  suspicionIncrement = 0.5; // Extremely slow accumulation
                 } else {
-                  suspicionIncrement = 0; // Neutral - perfectly safe to look around or at interviewer
+                  // Total suppression for normal looking around (looking at interviewer tile, outside monitor, etc.)
+                  suspicionIncrement = 0; 
                 }
               } else if (isActuallySpeaking) {
                 // When answering, ONLY alert for extreme/significant moves
