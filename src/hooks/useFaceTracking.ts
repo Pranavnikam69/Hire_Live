@@ -18,6 +18,7 @@ export const useFaceTracking = (
   const consecutiveNoFaceFrames = useRef(0);
   const consecutiveMultiFaceFrames = useRef(0);
   const consecutiveLookingAwayFrames = useRef(0);
+  const consecutiveSpeakingFrames = useRef(0);
 
   // Initialize MediaPipe Face Landmarker
   useEffect(() => {
@@ -89,8 +90,12 @@ export const useFaceTracking = (
             consecutiveMultiFaceFrames.current = 0;
 
             let lookRight = 0, lookLeft = 0, lookUp = 0, lookDown = 0;
+            let mouthActivity = 0;
+
             if (results.faceBlendshapes && results.faceBlendshapes[0]) {
               const blendshapes = results.faceBlendshapes[0].categories;
+              
+              // Eye Tracking
               lookRight = Math.max(
                 blendshapes.find(b => b.categoryName === "eyeLookInLeft")?.score || 0,
                 blendshapes.find(b => b.categoryName === "eyeLookOutRight")?.score || 0
@@ -107,7 +112,23 @@ export const useFaceTracking = (
                 blendshapes.find(b => b.categoryName === "eyeLookDownLeft")?.score || 0,
                 blendshapes.find(b => b.categoryName === "eyeLookDownRight")?.score || 0
               );
+
+              // Mouth Activity (Talking Detection)
+              const jawOpen = blendshapes.find(b => b.categoryName === "jawOpen")?.score || 0;
+              const mouthLowerDownLeft = blendshapes.find(b => b.categoryName === "mouthLowerDownLeft")?.score || 0;
+              const mouthLowerDownRight = blendshapes.find(b => b.categoryName === "mouthLowerDownRight")?.score || 0;
+              const mouthPucker = blendshapes.find(b => b.categoryName === "mouthPucker")?.score || 0;
+              
+              mouthActivity = Math.max(jawOpen, mouthLowerDownLeft, mouthLowerDownRight, mouthPucker);
             }
+
+            // Speaking State: Maintain "isSpeaking" for 30 frames (~1s) after last movement
+            if (mouthActivity > 0.12) {
+              consecutiveSpeakingFrames.current = 30; 
+            } else if (consecutiveSpeakingFrames.current > 0) {
+              consecutiveSpeakingFrames.current--;
+            }
+            const isActuallySpeaking = consecutiveSpeakingFrames.current > 0;
 
             const landmarks = results.faceLandmarks[0];
             if (landmarks && landmarks.length > 454) {
@@ -137,7 +158,8 @@ export const useFaceTracking = (
                 lookLeft > 0.48;    // Loosened Left Glance (was 0.32)
 
               if (isLookingAway) {
-                if (isTyping) {
+                // Suppress if typing OR speaking
+                if (isTyping || isActuallySpeaking) {
                   suspicionIncrement = 0;
                 } else {
                   // Severe look detection - also asymmetric
@@ -161,7 +183,8 @@ export const useFaceTracking = (
                   consecutiveLookingAwayFrames.current = 0;
                 }
               } else {
-                const decayRate = isTyping ? 5 : 3;
+                // Faster decay if typing or speaking (active context)
+                const decayRate = (isTyping || isActuallySpeaking) ? 8 : 3;
                 consecutiveLookingAwayFrames.current = Math.max(0, consecutiveLookingAwayFrames.current - decayRate);
               }
             }
