@@ -41,17 +41,23 @@ function MeetingRoom() {
   const [layout, setLayout] = useState<"grid" | "speaker">("speaker");
   const [showParticipants, setShowParticipants] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const { useCallCallingState, useLocalParticipant } = useCallStateHooks();
+  const { useCallCallingState, useLocalParticipant, useParticipants } = useCallStateHooks();
 
   const callingState = useCallCallingState();
   const localParticipant = useLocalParticipant();
   const { user } = useUser();
+  const participants = useParticipants();
   const call = useCall();
   const { isInterviewer: isInterviewerRole, isLoading: roleLoading } = useUserRole();
 
   // The creator of the meeting is the Interviewer, OR if they have the explicit role
   const isInterviewer = call?.state?.createdBy?.id === user?.id || isInterviewerRole;
   const isCandidate = !isInterviewer;
+
+  // Detect if the host/interviewer is speaking
+  const isInterviewerSpeaking = participants.some(
+    (p) => p.userId === call?.state?.createdBy?.id && p.isSpeaking && p.userId !== user?.id
+  );
 
   const handleKick = async () => {
     if (call) {
@@ -71,6 +77,7 @@ function MeetingRoom() {
   const { isModelLoaded } = useFaceTracking(videoRef.current, {
     enabled: isCandidate,
     isTyping,
+    isInterviewerSpeaking,
   });
 
   useEffect(() => {

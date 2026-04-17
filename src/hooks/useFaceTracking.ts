@@ -6,7 +6,7 @@ import { useCall } from "@stream-io/video-react-sdk";
 
 export const useFaceTracking = (
   videoElement: HTMLVideoElement | null,
-  { enabled = true, isTyping = false }: { enabled?: boolean; isTyping?: boolean } = {},
+  { enabled = true, isTyping = false, isInterviewerSpeaking = false }: { enabled?: boolean; isTyping?: boolean; isInterviewerSpeaking?: boolean } = {},
 ) => {
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker | null>(
     null,
@@ -142,7 +142,7 @@ export const useFaceTracking = (
               const pitchRatio = Math.abs(topEdge.y - nose.y) / Math.abs(bottomEdge.y - nose.y);
 
               // Dynamic Thresholds for Accuracy
-              const EYE_HORIZ_TOLERANCE = isActuallySpeaking ? 0.45 : 0.35; // Sharp when silent
+              const EYE_HORIZ_TOLERANCE = isActuallySpeaking ? 0.45 : 0.40; // Loosened when silent to reduce false positives
               const EYE_DOWN_TOLERANCE = 0.42;
               const EYE_UP_TOLERANCE = 0.18; 
               let suspicionIncrement = 0;
@@ -151,20 +151,23 @@ export const useFaceTracking = (
               const isLookingAway = 
                 pitchRatio > 3.2 || pitchRatio < 0.65 || 
                 yawRatio > 5.8 ||             // Loosened Left (Interviewer)
-                yawRatio < 0.38 ||            // Hardened Right (Away from screen)
+                yawRatio < 0.25 ||            // Relaxed Right (previously 0.38)
                 lookDown > EYE_DOWN_TOLERANCE || lookUp > EYE_UP_TOLERANCE || 
-                lookRight > 0.38 ||           // Hardened Right Glance
+                lookRight > 0.50 ||           // Relaxed Right Glance (previously 0.38)
                 lookLeft > EYE_HORIZ_TOLERANCE;
 
               if (isLookingAway) {
-                if (isActuallySpeaking) {
+                if (isInterviewerSpeaking) {
+                  // Suppress anti-cheat when interviewer is talking
+                  suspicionIncrement = 0.05; // Extremely slow accumulation (grace period)
+                } else if (isActuallySpeaking) {
                   // 5-Second Grace Mode (Inc: 0.5, Target: 80)
                   suspicionIncrement = 0.5; 
                 } else if (isTyping) {
                   suspicionIncrement = 0; // Typing still gets priority pause
                 } else {
                   // Strict Normal Mode
-                  const isSevere = pitchRatio > 4.5 || pitchRatio < 0.50 || yawRatio > 7.5 || yawRatio < 0.22;
+                  const isSevere = pitchRatio > 4.5 || pitchRatio < 0.50 || yawRatio > 7.5 || yawRatio < 0.20;
                   suspicionIncrement = isSevere ? 3 : 1; 
                 }
               }
@@ -204,7 +207,7 @@ export const useFaceTracking = (
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [videoElement, isModelLoaded, faceLandmarker, call, isTyping]);
+  }, [videoElement, isModelLoaded, faceLandmarker, call, isTyping, isInterviewerSpeaking]);
 
   return { isModelLoaded };
 };
