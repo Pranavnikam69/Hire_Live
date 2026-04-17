@@ -54,10 +54,16 @@ function MeetingRoom() {
   const isInterviewer = call?.state?.createdBy?.id === user?.id || isInterviewerRole;
   const isCandidate = !isInterviewer;
 
-  // Detect if the host/interviewer is speaking
+  // Detect if any other participant (interviewer) is speaking
   const isInterviewerSpeaking = participants.some(
-    (p) => p.userId === call?.state?.createdBy?.id && p.isSpeaking && p.userId !== user?.id
+    (p) => p.isSpeaking && p.userId !== user?.id
   );
+
+  // Detect if the student (local participant) is NOT speaking
+  const isLocalParticipantSpeaking = localParticipant?.isSpeaking;
+
+  // Face anti-cheat turns OFF only when (Interviewer is talking) AND (Student is silent)
+  const shouldSuppressFaceAntiCheat = isInterviewerSpeaking && !isLocalParticipantSpeaking;
 
   const handleKick = async () => {
     if (call) {
@@ -77,7 +83,7 @@ function MeetingRoom() {
   const { isModelLoaded } = useFaceTracking(videoRef.current, {
     enabled: isCandidate,
     isTyping,
-    isInterviewerSpeaking,
+    shouldSuppressFaceAntiCheat,
   });
 
   useEffect(() => {

@@ -6,7 +6,7 @@ import { useCall } from "@stream-io/video-react-sdk";
 
 export const useFaceTracking = (
   videoElement: HTMLVideoElement | null,
-  { enabled = true, isTyping = false, isInterviewerSpeaking = false }: { enabled?: boolean; isTyping?: boolean; isInterviewerSpeaking?: boolean } = {},
+  { enabled = true, isTyping = false, shouldSuppressFaceAntiCheat = false }: { enabled?: boolean; isTyping?: boolean; shouldSuppressFaceAntiCheat?: boolean } = {},
 ) => {
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker | null>(
     null,
@@ -68,6 +68,14 @@ export const useFaceTracking = (
         
         try {
           const results = faceLandmarker.detectForVideo(videoElement, startTimeMs);
+
+          if (shouldSuppressFaceAntiCheat) {
+            consecutiveNoFaceFrames.current = 0;
+            consecutiveMultiFaceFrames.current = 0;
+            consecutiveLookingAwayFrames.current = 0;
+            consecutiveSpeakingFrames.current = 0;
+            return;
+          }
 
           if (results.faceLandmarks.length === 0) {
             consecutiveNoFaceFrames.current++;
@@ -167,10 +175,7 @@ export const useFaceTracking = (
                 lookLeft > EYE_HORIZ_TOLERANCE;
 
               if (isLookingAway) {
-                if (isInterviewerSpeaking) {
-                  // STOP anti-cheat entirely when interviewer is talking
-                  suspicionIncrement = 0; 
-                } else if (isActuallySpeaking) {
+                if (isActuallySpeaking) {
                   // 5-Second Grace Mode (Inc: 0.5, Target: 80)
                   suspicionIncrement = 0.5; 
                 } else if (isTyping) {
@@ -218,7 +223,7 @@ export const useFaceTracking = (
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [videoElement, isModelLoaded, faceLandmarker, call, isTyping, isInterviewerSpeaking]);
+  }, [videoElement, isModelLoaded, faceLandmarker, call, isTyping, shouldSuppressFaceAntiCheat]);
 
   return { isModelLoaded };
 };
