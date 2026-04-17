@@ -75,7 +75,11 @@ export const useFaceTracking = (
             if (consecutiveNoFaceFrames.current === 90) {
               playWarningSound("Warning! Face not detected.");
               toast.error("Warning: Face not detected!", { id: "no-face", duration: 3000 });
-              call?.sendCustomEvent({ type: "cheat-alert", reason: "Face is not visible!" });
+              call?.sendCustomEvent({ 
+                type: "cheat-alert", 
+                reason: "Face is not visible!",
+                timestamp: new Date().toISOString()
+              });
               consecutiveNoFaceFrames.current = 0;
             }
           } else if (results.faceLandmarks.length > 1) {
@@ -84,7 +88,11 @@ export const useFaceTracking = (
             if (consecutiveMultiFaceFrames.current === 60) {
               playWarningSound("Warning! Multiple faces detected.");
               toast.error("Warning: Multiple faces detected!", { id: "multi-face", duration: 3000 });
-              call?.sendCustomEvent({ type: "cheat-alert", reason: "Multiple faces detected!" });
+              call?.sendCustomEvent({ 
+                type: "cheat-alert", 
+                reason: "Multiple faces detected!",
+                timestamp: new Date().toISOString()
+              });
               consecutiveMultiFaceFrames.current = 0;
             }
           } else {
@@ -160,8 +168,8 @@ export const useFaceTracking = (
 
               if (isLookingAway) {
                 if (isInterviewerSpeaking) {
-                  // Suppress anti-cheat when interviewer is talking
-                  suspicionIncrement = 0.05; // Extremely slow accumulation (grace period)
+                  // STOP anti-cheat entirely when interviewer is talking
+                  suspicionIncrement = 0; 
                 } else if (isActuallySpeaking) {
                   // 5-Second Grace Mode (Inc: 0.5, Target: 80)
                   suspicionIncrement = 0.5; 

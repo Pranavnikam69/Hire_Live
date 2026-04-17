@@ -97,14 +97,14 @@ function MeetingRoom() {
   useEffect(() => {
     if (!call) return;
     const unsubscribe = call.on("custom", (event) => {
-      // Robust check for interviewer to show toast
-      const isActuallyInterviewer = call.state.createdBy?.id === user?.id || isInterviewerRole;
-      
-      if (event.custom?.type === "cheat-alert" && isActuallyInterviewer) {
+      // Use explicit role check for interviewer
+      if (event.custom?.type === "cheat-alert" && isInterviewerRole) {
+        console.log("[AntiCheat] Interviewer received alert:", event.custom);
+        
         toast.error(`Anti-Cheat Alert: ${event.custom.reason}`, {
-          duration: 6000,
+          duration: 8000, // Slightly longer duration for better visibility
           position: "top-center",
-          id: `alert-${event.custom.timestamp || Date.now()}` // Unique ID to prevent missing alerts
+          id: `alert-${event.custom.timestamp || Date.now()}` // Ensure unique ID per event
         });
       }
     });

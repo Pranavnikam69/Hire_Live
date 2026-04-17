@@ -42,7 +42,8 @@ export const useAntiCheat = ({ enabled = true, onKick }: { enabled?: boolean, on
 
       call?.sendCustomEvent({
         type: "cheat-alert",
-        reason: toastMessage
+        reason: toastMessage,
+        timestamp: new Date().toISOString()
       });
     };
 
