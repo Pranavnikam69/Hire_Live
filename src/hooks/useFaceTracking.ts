@@ -67,41 +67,43 @@ export const useFaceTracking = (
         const startTimeMs = performance.now();
         
         try {
+          if (shouldSuppressFaceAntiCheat) {
+            // Completely stop all anti-cheat logic and clear accumulated state
+            consecutiveNoFaceFrames.current = 0;
+            consecutiveMultiFaceFrames.current = 0;
+            consecutiveLookingAwayFrames.current = 0;
+            consecutiveSpeakingFrames.current = 0;
+            animationRef.current = requestAnimationFrame(predict);
+            return; // Exit early, skipping AI model processing entirely
+          }
+
           const results = faceLandmarker.detectForVideo(videoElement, startTimeMs);
 
           if (results.faceLandmarks.length === 0) {
-            if (shouldSuppressFaceAntiCheat) {
+            consecutiveNoFaceFrames.current++;
+            consecutiveMultiFaceFrames.current = 0;
+            if (consecutiveNoFaceFrames.current === 90) {
+              playWarningSound("Warning! Face not detected.");
+              toast.error("Warning: Face not detected!", { id: "no-face", duration: 3000 });
+              call?.sendCustomEvent({ 
+                type: "cheat-alert", 
+                reason: "Face is not visible!",
+                timestamp: new Date().toISOString()
+              });
               consecutiveNoFaceFrames.current = 0;
-            } else {
-              consecutiveNoFaceFrames.current++;
-              consecutiveMultiFaceFrames.current = 0;
-              if (consecutiveNoFaceFrames.current === 90) {
-                playWarningSound("Warning! Face not detected.");
-                toast.error("Warning: Face not detected!", { id: "no-face", duration: 3000 });
-                call?.sendCustomEvent({ 
-                  type: "cheat-alert", 
-                  reason: "Face is not visible!",
-                  timestamp: new Date().toISOString()
-                });
-                consecutiveNoFaceFrames.current = 0;
-              }
             }
           } else if (results.faceLandmarks.length > 1) {
-            if (shouldSuppressFaceAntiCheat) {
+            consecutiveMultiFaceFrames.current++;
+            consecutiveNoFaceFrames.current = 0;
+            if (consecutiveMultiFaceFrames.current === 60) {
+              playWarningSound("Warning! Multiple faces detected.");
+              toast.error("Warning: Multiple faces detected!", { id: "multi-face", duration: 3000 });
+              call?.sendCustomEvent({ 
+                type: "cheat-alert", 
+                reason: "Multiple faces detected!",
+                timestamp: new Date().toISOString()
+              });
               consecutiveMultiFaceFrames.current = 0;
-            } else {
-              consecutiveMultiFaceFrames.current++;
-              consecutiveNoFaceFrames.current = 0;
-              if (consecutiveMultiFaceFrames.current === 60) {
-                playWarningSound("Warning! Multiple faces detected.");
-                toast.error("Warning: Multiple faces detected!", { id: "multi-face", duration: 3000 });
-                call?.sendCustomEvent({ 
-                  type: "cheat-alert", 
-                  reason: "Multiple faces detected!",
-                  timestamp: new Date().toISOString()
-                });
-                consecutiveMultiFaceFrames.current = 0;
-              }
             }
           } else {
             consecutiveNoFaceFrames.current = 0;
@@ -182,16 +184,7 @@ export const useFaceTracking = (
                 yawRatio > 9.5 || yawRatio < 0.12 || 
                 lookDown > 0.75 || lookRight > 0.85 || lookLeft > 0.85;
 
-              if (shouldSuppressFaceAntiCheat) {
-                // Interviewer is talking. Anti-cheat is heavily suppressed.
-                if (isSignificantMove) {
-                  // Only extreme/blatant moves like turning head 90 degrees backward will build any suspicion
-                  suspicionIncrement = 0.5; // Extremely slow accumulation
-                } else {
-                  // Total suppression for normal looking around (looking at interviewer tile, outside monitor, etc.)
-                  suspicionIncrement = 0; 
-                }
-              } else if (isActuallySpeaking) {
+              if (isActuallySpeaking) {
                 // When answering, ONLY alert for extreme/significant moves
                 if (isSignificantMove) {
                   suspicionIncrement = 1.5; // Rapid alert for significant moves
@@ -211,6 +204,7 @@ export const useFaceTracking = (
                 }
               }
 
+
               if (suspicionIncrement > 0) {
                 consecutiveLookingAwayFrames.current += suspicionIncrement;
                 if (consecutiveLookingAwayFrames.current >= 80) {
@@ -226,10 +220,10 @@ export const useFaceTracking = (
                 }
               } else {
                 // Decay suspicion: Slower when silent to catch "pulsing" cheaters
-                // When typing, speaking, or listening to interviewer, we also use a slower decay (1) so that the relatively small increments (0.5 and 0.7) can accumulate correctly over time.
-                const decayRate = isTyping ? 1 : (isActuallySpeaking || shouldSuppressFaceAntiCheat) ? 1 : 2;
+                const decayRate = isTyping ? 1 : isActuallySpeaking ? 1 : 2;
                 consecutiveLookingAwayFrames.current = Math.max(0, consecutiveLookingAwayFrames.current - decayRate);
               }
+
             }
           }
         } catch (e) {
