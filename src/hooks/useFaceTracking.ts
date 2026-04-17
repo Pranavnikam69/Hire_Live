@@ -174,11 +174,17 @@ export const useFaceTracking = (
                 lookRight > 0.50 ||           // Relaxed Right Glance (previously 0.38)
                 lookLeft > EYE_HORIZ_TOLERANCE;
 
-              if (isLookingAway) {
-                if (isActuallySpeaking) {
-                  // 5-Second Grace Mode (Inc: 0.5, Target: 80)
-                  suspicionIncrement = 0.5; 
-                } else if (isTyping) {
+              // Conversational "Significant" Thresholds (Only triggered when answering)
+              const isSignificantMove = 
+                pitchRatio > 5.5 || pitchRatio < 0.40 || 
+                yawRatio > 9.5 || yawRatio < 0.12 || 
+                lookDown > 0.75 || lookRight > 0.85 || lookLeft > 0.85;
+
+              if (isActuallySpeaking) {
+                // When answering, ONLY alert for extreme/significant moves
+                suspicionIncrement = isSignificantMove ? 1.5 : 0;
+              } else if (isLookingAway) {
+                if (isTyping) {
                   // Coding Grace Mode: Trigger after ~5 seconds of looking away
                   suspicionIncrement = 0.5; 
                 } else {
