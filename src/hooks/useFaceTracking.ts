@@ -159,62 +159,46 @@ export const useFaceTracking = (
               const yawRatio = Math.abs(nose.x - leftEdge.x) / Math.abs(rightEdge.x - nose.x);
               const pitchRatio = Math.abs(topEdge.y - nose.y) / Math.abs(bottomEdge.y - nose.y);
 
-              // Dynamic Thresholds for Accuracy
-              const isLooseMode = isActuallySpeaking || shouldSuppressFaceAntiCheat;
-              const EYE_HORIZ_TOLERANCE_LEFT = isLooseMode ? 0.62 : 0.40; // Extremely loosened to allow interviewer gaze
-              const EYE_HORIZ_TOLERANCE_RIGHT = isLooseMode ? 0.62 : 0.50; // Extremely loosened when speaking or listening
-              const EYE_DOWN_TOLERANCE = 0.42;
-              const EYE_UP_TOLERANCE = 0.18; 
+              // Refined Gaze Thresholds (Optimized for Screen-Safe Movement)
+              // We loosen these significantly to ensure the entire monitor is a "Safe Zone"
+              const YAW_SAFE_MIN = 0.15;
+              const YAW_SAFE_MAX = 10.0;
+              const PITCH_SAFE_MIN = 0.50;
+              const PITCH_SAFE_MAX = 4.5;
+              const EYE_SAFE_MAX = 0.70;
+
+              const isGazeOffScreen = 
+                pitchRatio > PITCH_SAFE_MAX || pitchRatio < PITCH_SAFE_MIN ||
+                yawRatio > YAW_SAFE_MAX || yawRatio < YAW_SAFE_MIN ||
+                lookRight > EYE_SAFE_MAX || lookLeft > EYE_SAFE_MAX ||
+                lookDown > 0.60; // Gaze down at phone/notes
+
+              // Significant Moves (Extreme deviations, e.g. turning 90 degrees away)
+              const isSignificantMove = 
+                pitchRatio > 6.0 || pitchRatio < 0.35 || 
+                yawRatio > 12.0 || yawRatio < 0.10 || 
+                lookRight > 0.90 || lookLeft > 0.90;
+
               let suspicionIncrement = 0;
 
-              // Asymmetric Contextual Thresholds
-              const isLookingAway = 
-                pitchRatio > 3.2 || pitchRatio < 0.65 || 
-                yawRatio > 5.8 ||             // Loosened Left (Interviewer)
-                yawRatio < 0.25 ||            // Relaxed Right (previously 0.38)
-                lookDown > EYE_DOWN_TOLERANCE || lookUp > EYE_UP_TOLERANCE || 
-                lookRight > EYE_HORIZ_TOLERANCE_RIGHT ||
-                lookLeft > EYE_HORIZ_TOLERANCE_LEFT;
-
-              // Conversational "Significant" Thresholds (Only triggered when answering)
-              const isSignificantMove = 
-                pitchRatio > 5.5 || pitchRatio < 0.40 || 
-                yawRatio > 9.5 || yawRatio < 0.12 || 
-                lookDown > 0.75 || lookRight > 0.85 || lookLeft > 0.85;
-
-              // Conversational "Suspicious" Thresholds
-              // Differentiates looking at interviewer tile (mild tilt/eye shift) from blatant cheating (looking off-screen)
-              const isSuspiciousCheatLook =
-                lookRight > 0.65 || lookLeft > 0.65 ||  // extreme eye shift off monitor
-                yawRatio < 0.20 || yawRatio > 7.5 ||    // severe head rotation away
-                pitchRatio > 4.5 || pitchRatio < 0.50;  // severe head tilt down/up
-
-              if (shouldSuppressFaceAntiCheat) {
-                // Interviewer is talking. Anti-cheat is mostly suppressed.
-                // We ONLY trigger if student maintains a sustained gaze in a cheating direction for ~3 seconds.
+              if (shouldSuppressFaceAntiCheat || isActuallySpeaking) {
+                // Conversational Mode (Answering or Listening)
+                // We ONLY trigger if the gaze is clearly OFF-SCREEN for a sustained duration
                 if (isSignificantMove) {
-                  suspicionIncrement = 1.0; // Rapid alert for significant moves
-                } else if (isSuspiciousCheatLook) {
-                  suspicionIncrement = 0.9; // ~3 second sustained gaze
+                  suspicionIncrement = 1.5; // Rapid alert for significant/blatant moves
+                } else if (isGazeOffScreen) {
+                  suspicionIncrement = 0.6; // ~4.5 second trigger for sustained eye movement in a different direction
                 } else {
-                  suspicionIncrement = 0; // Neutral - perfectly safe to look around or at interviewer
+                  suspicionIncrement = 0; // Neutral - looking around the screen or at interviewer is safe
                 }
-              } else if (isActuallySpeaking) {
-                // When answering, ONLY alert for extreme/significant moves
-                if (isSignificantMove) {
-                  suspicionIncrement = 1.5; // Rapid alert for significant moves
-                } else if (isSuspiciousCheatLook) {
-                  suspicionIncrement = 0.7; // Alert in ~4 seconds for sustained cheating glances
-                } else {
-                  suspicionIncrement = 0; // Neutral
-                }
-              } else if (isLookingAway) {
+              } else if (isGazeOffScreen) {
+                // Strict Monitoring (Silent)
                 if (isTyping) {
-                  // Coding Grace Mode: Trigger after ~5 seconds of looking away
+                  // Coding Grace Mode: ~5 seconds of looking away
                   suspicionIncrement = 0.5; 
                 } else {
-                  // Strict Normal Mode
-                  const isSevere = pitchRatio > 4.5 || pitchRatio < 0.50 || yawRatio > 7.5 || yawRatio < 0.20;
+                  // Strict Normal Mode: ~2.6 seconds
+                  const isSevere = pitchRatio > 5.0 || yawRatio > 8.0 || yawRatio < 0.12;
                   suspicionIncrement = isSevere ? 3 : 1; 
                 }
               }
