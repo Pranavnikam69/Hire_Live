@@ -207,15 +207,18 @@ export const useFaceTracking = (
                 yawRatio > 12.0 || yawRatio < 0.10 || 
                 lookRight > 0.90 || lookLeft > 0.90;
 
-              if (shouldSuppressFaceAntiCheat || isActuallySpeaking) {
-                // Conversational Mode: Wide Safe Zone
-                // The student is allowed to look anywhere on the screen (e.g. at the interviewer's portrait)
+              if (shouldSuppressFaceAntiCheat) {
+                // Interviewer is talking. Anti-cheat is totally suppressed. 
+                // The student is allowed to look anywhere (like the interviewer window) safely.
+                suspicionIncrement = 0;
+              } else if (isActuallySpeaking) {
+                // When answering, ONLY alert for extreme/significant moves
                 if (isSignificantMove) {
                   suspicionIncrement = 1.5; // Rapid alert for brutal/blatant turns
                 } else if (isGazeOffScreen) {
                   suspicionIncrement = 0.6; // Slower alert for sustained gazing visibly off-screen (~4.5 seconds)
                 } else {
-                  suspicionIncrement = 0; // Look at interviewer perfectly safe!
+                  suspicionIncrement = 0;
                 }
               } else if (isLookingAway) {
                 if (isTyping) {
