@@ -182,7 +182,13 @@ export const useFaceTracking = (
 
               if (isActuallySpeaking) {
                 // When answering, ONLY alert for extreme/significant moves
-                suspicionIncrement = isSignificantMove ? 1.5 : 0;
+                if (isSignificantMove) {
+                  suspicionIncrement = 1.5; // Rapid alert for significant moves
+                } else if (isLookingAway) {
+                  suspicionIncrement = 0.7; // Slower alert for normal looking away (~4 seconds)
+                } else {
+                  suspicionIncrement = 0;
+                }
               } else if (isLookingAway) {
                 if (isTyping) {
                   // Coding Grace Mode: Trigger after ~5 seconds of looking away
