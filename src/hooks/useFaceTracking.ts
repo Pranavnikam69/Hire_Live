@@ -6,7 +6,7 @@ import { useCall } from "@stream-io/video-react-sdk";
 
 export const useFaceTracking = (
   videoElement: HTMLVideoElement | null,
-  { enabled = true, isTyping = false, shouldSuppressFaceAntiCheat = false }: { enabled?: boolean; isTyping?: boolean; shouldSuppressFaceAntiCheat?: boolean } = {},
+  { enabled = true, isTyping = false, shouldSuppressFaceAntiCheat = false, role = "candidate" as "candidate" | "interviewer" }: { enabled?: boolean; isTyping?: boolean; shouldSuppressFaceAntiCheat?: boolean; role?: "candidate" | "interviewer" } = {},
 ) => {
   const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker | null>(
     null,
@@ -19,6 +19,7 @@ export const useFaceTracking = (
   const consecutiveMultiFaceFrames = useRef(0);
   const consecutiveLookingAwayFrames = useRef(0);
   const consecutiveSpeakingFrames = useRef(0);
+  const isVisuallySpeakingRef = useRef(false);
 
   // Initialize MediaPipe Face Landmarker
   useEffect(() => {
@@ -67,19 +68,12 @@ export const useFaceTracking = (
         const startTimeMs = performance.now();
         
         try {
-          if (shouldSuppressFaceAntiCheat) {
-            // Completely stop all anti-cheat logic and clear accumulated state
-            consecutiveNoFaceFrames.current = 0;
-            consecutiveMultiFaceFrames.current = 0;
-            consecutiveLookingAwayFrames.current = 0;
-            consecutiveSpeakingFrames.current = 0;
-            animationRef.current = requestAnimationFrame(predict);
-            return; // Exit early, skipping AI model processing entirely
-          }
-
           const results = faceLandmarker.detectForVideo(videoElement, startTimeMs);
 
-          if (results.faceLandmarks.length === 0) {
+          // If role is interviewer, we DON'T care about No Face or Multi Face. Avoid spam.
+          if ((role as string) === "interviewer") {
+            // We just need to check if they are speaking later
+          } else if (results.faceLandmarks.length === 0) {
             consecutiveNoFaceFrames.current++;
             consecutiveMultiFaceFrames.current = 0;
             if (consecutiveNoFaceFrames.current === 90) {
@@ -150,6 +144,20 @@ export const useFaceTracking = (
             }
             const isActuallySpeaking = consecutiveSpeakingFrames.current > 0;
 
+            if ((role as string) === "interviewer") {
+              if (isActuallySpeaking !== isVisuallySpeakingRef.current) {
+                isVisuallySpeakingRef.current = isActuallySpeaking;
+                call?.sendCustomEvent({
+                  type: "visual-speech-state",
+                  isSpeaking: isActuallySpeaking,
+                  timestamp: new Date().toISOString()
+                });
+              }
+              // Interviewers don't get anti-cheat gaze tracked. Exit early.
+              animationRef.current = requestAnimationFrame(predict);
+              return;
+            }
+
             const landmarks = results.faceLandmarks[0];
             if (landmarks && landmarks.length > 454) {
               const nose = landmarks[1];
@@ -169,6 +177,7 @@ export const useFaceTracking = (
               const EYE_UP_TOLERANCE = 0.18; 
               let suspicionIncrement = 0;
 
+
               // Asymmetric Contextual Thresholds
               const isLookingAway = 
                 pitchRatio > 3.2 || pitchRatio < 0.65 || 
@@ -178,20 +187,35 @@ export const useFaceTracking = (
                 lookRight > EYE_HORIZ_TOLERANCE_RIGHT ||
                 lookLeft > EYE_HORIZ_TOLERANCE_LEFT;
 
-              // Conversational "Significant" Thresholds (Only triggered when answering)
-              const isSignificantMove = 
-                pitchRatio > 5.5 || pitchRatio < 0.40 || 
-                yawRatio > 9.5 || yawRatio < 0.12 || 
-                lookDown > 0.75 || lookRight > 0.85 || lookLeft > 0.85;
+              // Refined Gaze Thresholds (Optimized for Screen-Safe Movement)
+              // We loosen these significantly to ensure the entire monitor is a "Safe Zone" when interviewer talks
+              const YAW_SAFE_MIN = 0.15;
+              const YAW_SAFE_MAX = 10.0;
+              const PITCH_SAFE_MIN = 0.50;
+              const PITCH_SAFE_MAX = 4.5;
+              const EYE_SAFE_MAX = 0.70;
 
-              if (isActuallySpeaking) {
-                // When answering, ONLY alert for extreme/significant moves
+              const isGazeOffScreen = 
+                pitchRatio > PITCH_SAFE_MAX || pitchRatio < PITCH_SAFE_MIN ||
+                yawRatio > YAW_SAFE_MAX || yawRatio < YAW_SAFE_MIN ||
+                lookRight > EYE_SAFE_MAX || lookLeft > EYE_SAFE_MAX ||
+                lookDown > 0.60;
+
+              // Conversational "Significant" Thresholds (Only triggered when answering/listening)
+              const isSignificantMove = 
+                pitchRatio > 6.0 || pitchRatio < 0.35 || 
+                yawRatio > 12.0 || yawRatio < 0.10 || 
+                lookRight > 0.90 || lookLeft > 0.90;
+
+              if (shouldSuppressFaceAntiCheat || isActuallySpeaking) {
+                // Conversational Mode: Wide Safe Zone
+                // The student is allowed to look anywhere on the screen (e.g. at the interviewer's portrait)
                 if (isSignificantMove) {
-                  suspicionIncrement = 1.5; // Rapid alert for significant moves
-                } else if (isLookingAway) {
-                  suspicionIncrement = 0.7; // Slower alert for normal looking away (~4 seconds)
+                  suspicionIncrement = 1.5; // Rapid alert for brutal/blatant turns
+                } else if (isGazeOffScreen) {
+                  suspicionIncrement = 0.6; // Slower alert for sustained gazing visibly off-screen (~4.5 seconds)
                 } else {
-                  suspicionIncrement = 0;
+                  suspicionIncrement = 0; // Look at interviewer perfectly safe!
                 }
               } else if (isLookingAway) {
                 if (isTyping) {
@@ -220,7 +244,7 @@ export const useFaceTracking = (
                 }
               } else {
                 // Decay suspicion: Slower when silent to catch "pulsing" cheaters
-                const decayRate = isTyping ? 1 : isActuallySpeaking ? 1 : 2;
+                const decayRate = isTyping ? 1 : (isActuallySpeaking || shouldSuppressFaceAntiCheat) ? 1 : 2;
                 consecutiveLookingAwayFrames.current = Math.max(0, consecutiveLookingAwayFrames.current - decayRate);
               }
 

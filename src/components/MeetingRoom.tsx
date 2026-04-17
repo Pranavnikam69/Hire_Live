@@ -58,27 +58,18 @@ function MeetingRoom() {
   const lastInterviewerSpeakingTimeRef = useRef(0);
 
   useEffect(() => {
-    // Use sessionId instead of userId to correctly detect speech even when testing with the same user account on two tabs
-    const isInterviewerSpeaking = participants.some((p) => p.isSpeaking && p.sessionId !== localParticipant?.sessionId);
-    if (isInterviewerSpeaking) {
-      lastInterviewerSpeakingTimeRef.current = Date.now();
-      if (!isInterviewerSpeakingRecently) {
-        console.log("[AntiCheat] Remote participant started speaking. Face anti-cheat suppressed.");
-        setIsInterviewerSpeakingRecently(true);
-      }
-    }
-  }, [participants, localParticipant?.sessionId, isInterviewerSpeakingRecently]);
-
-  useEffect(() => {
     const interval = setInterval(() => {
-      const isRecentlySpeaking = Date.now() - lastInterviewerSpeakingTimeRef.current < 3000;
-      if (!isRecentlySpeaking && isInterviewerSpeakingRecently) {
-        console.log("[AntiCheat] Interviewer stopped speaking. Resuming strict normal mode.");
-        setIsInterviewerSpeakingRecently(false);
-      }
+      const isRecentlySpeaking = Date.now() - lastInterviewerSpeakingTimeRef.current < 4000;
+      setIsInterviewerSpeakingRecently((prev) => {
+        if (prev && !isRecentlySpeaking) {
+          console.log("[AntiCheat] Interviewer stopped speaking visually. Resuming strict normal mode.");
+          return false;
+        }
+        return prev;
+      });
     }, 500);
     return () => clearInterval(interval);
-  }, [isInterviewerSpeakingRecently]);
+  }, []);
 
 
   // Detect if the student (local participant) is NOT speaking
@@ -104,9 +95,10 @@ function MeetingRoom() {
   // Face Tracking initialization via hidden video element
   const videoRef = useRef<HTMLVideoElement>(null);
   const { isModelLoaded } = useFaceTracking(videoRef.current, {
-    enabled: isCandidate,
+    enabled: true, // Enable for both roles! (Interviewer broadcasts lips, Candidate tracks eyes/head)
     isTyping,
     shouldSuppressFaceAntiCheat,
+    role: isInterviewer ? "interviewer" : "candidate",
   });
 
   useEffect(() => {
@@ -131,10 +123,18 @@ function MeetingRoom() {
         console.log("[AntiCheat] Interviewer received alert:", event.custom);
         
         toast.error(`Anti-Cheat Alert: ${event.custom.reason}`, {
-          duration: 8000, // Slightly longer duration for better visibility
+          duration: 8000,
           position: "top-center",
-          id: `alert-${event.custom.timestamp || Date.now()}` // Ensure unique ID per event
+          id: `alert-${event.custom.timestamp || Date.now()}`
         });
+      } else if (event.custom?.type === "visual-speech-state") {
+        if (event.custom.isSpeaking && isCandidate) {
+          lastInterviewerSpeakingTimeRef.current = Date.now();
+          setIsInterviewerSpeakingRecently((prev) => {
+            if (!prev) console.log("[AntiCheat] Interviewer started visually speaking. Enabling Wide Safe Zone.");
+            return true;
+          });
+        }
       }
     });
 
