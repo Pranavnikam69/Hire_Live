@@ -137,7 +137,7 @@ export const useFaceTracking = (
             }
 
             // Speaking State: Maintain "isSpeaking" for 30 frames (~1s) after last movement
-            if (mouthActivity > 0.12) {
+            if (mouthActivity > 0.08) {
               consecutiveSpeakingFrames.current = 30; 
             } else if (consecutiveSpeakingFrames.current > 0) {
               consecutiveSpeakingFrames.current--;

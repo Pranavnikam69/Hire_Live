@@ -57,6 +57,19 @@ function MeetingRoom() {
   const [isInterviewerSpeakingRecently, setIsInterviewerSpeakingRecently] = useState(false);
   const lastInterviewerSpeakingTimeRef = useRef(0);
 
+  // Audio-based Speech Detection Fallback
+  // If the visual lip-tracking fails or the lighting is bad, we still rely on the microphone's SDK state to trigger suppression.
+  useEffect(() => {
+    const isInterviewerSpeakingAudio = participants.some((p) => p.isSpeaking && p.sessionId !== localParticipant?.sessionId);
+    if (isInterviewerSpeakingAudio) {
+      lastInterviewerSpeakingTimeRef.current = Date.now();
+      setIsInterviewerSpeakingRecently((prev) => {
+        if (!prev) console.log("[AntiCheat] Interviewer speaking via Audio. Enabling Wide Safe Zone.");
+        return true;
+      });
+    }
+  }, [participants, localParticipant?.sessionId]);
+
   useEffect(() => {
     const interval = setInterval(() => {
       const isRecentlySpeaking = Date.now() - lastInterviewerSpeakingTimeRef.current < 4000;
