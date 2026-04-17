@@ -160,7 +160,8 @@ export const useFaceTracking = (
               const pitchRatio = Math.abs(topEdge.y - nose.y) / Math.abs(bottomEdge.y - nose.y);
 
               // Dynamic Thresholds for Accuracy
-              const EYE_HORIZ_TOLERANCE = isActuallySpeaking ? 0.45 : 0.40; // Loosened when silent to reduce false positives
+              const EYE_HORIZ_TOLERANCE_LEFT = isActuallySpeaking ? 0.62 : 0.40; // Extremely loosened when speaking to allow interviewer gaze
+              const EYE_HORIZ_TOLERANCE_RIGHT = isActuallySpeaking ? 0.62 : 0.50; // Extremely loosened when speaking
               const EYE_DOWN_TOLERANCE = 0.42;
               const EYE_UP_TOLERANCE = 0.18; 
               let suspicionIncrement = 0;
@@ -171,8 +172,8 @@ export const useFaceTracking = (
                 yawRatio > 5.8 ||             // Loosened Left (Interviewer)
                 yawRatio < 0.25 ||            // Relaxed Right (previously 0.38)
                 lookDown > EYE_DOWN_TOLERANCE || lookUp > EYE_UP_TOLERANCE || 
-                lookRight > 0.50 ||           // Relaxed Right Glance (previously 0.38)
-                lookLeft > EYE_HORIZ_TOLERANCE;
+                lookRight > EYE_HORIZ_TOLERANCE_RIGHT ||
+                lookLeft > EYE_HORIZ_TOLERANCE_LEFT;
 
               // Conversational "Significant" Thresholds (Only triggered when answering)
               const isSignificantMove = 
@@ -215,8 +216,8 @@ export const useFaceTracking = (
                 }
               } else {
                 // Decay suspicion: Slower when silent to catch "pulsing" cheaters
-                // Faster when typing/speaking to reward participation
-                const decayRate = (isTyping || isActuallySpeaking) ? 8 : 2;
+                // When typing or speaking, we also use a slower decay (1) so that the relatively small increments (0.5 and 0.7) can accumulate correctly over time.
+                const decayRate = isTyping ? 1 : isActuallySpeaking ? 1 : 2;
                 consecutiveLookingAwayFrames.current = Math.max(0, consecutiveLookingAwayFrames.current - decayRate);
               }
             }
