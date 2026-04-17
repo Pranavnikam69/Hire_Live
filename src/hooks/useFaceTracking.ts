@@ -120,23 +120,28 @@ export const useFaceTracking = (
               const yawRatio = Math.abs(nose.x - leftEdge.x) / Math.abs(rightEdge.x - nose.x);
               const pitchRatio = Math.abs(topEdge.y - nose.y) / Math.abs(bottomEdge.y - nose.y);
 
-              const HORIZ_EYE_THRESHOLD = 0.32;
-              const DOWN_EYE_THRESHOLD = 0.42;
-              const UP_EYE_THRESHOLD = 0.18; // Sharpened from 0.25
+              const EYE_HORIZ_TOLERANCE = 0.40;
+              const EYE_DOWN_TOLERANCE = 0.42;
+              const EYE_UP_TOLERANCE = 0.18; 
               let suspicionIncrement = 0;
 
+              // Asymmetric Thresholds: 
+              // Interviewer video is on the LEFT. Student looks LEFT and their head/eyes turn LEFT.
+              // So we give more room to yawRatio > 1.0 (Left Turn) and lookLeft (Left Glance).
               const isLookingAway = 
-                pitchRatio > 3.2 || pitchRatio < 0.65 || // Sharpened Look Up (was 0.55)
-                yawRatio > 3.2 || yawRatio < 0.32 || 
-                lookDown > DOWN_EYE_THRESHOLD || lookUp > UP_EYE_THRESHOLD || 
-                lookRight > HORIZ_EYE_THRESHOLD || lookLeft > HORIZ_EYE_THRESHOLD;
+                pitchRatio > 3.2 || pitchRatio < 0.65 || 
+                yawRatio > 5.8 || // Loosened Left Turn (was 3.2)
+                yawRatio < 0.35 || // Strict Right Turn
+                lookDown > EYE_DOWN_TOLERANCE || lookUp > EYE_UP_TOLERANCE || 
+                lookRight > 0.35 || // Strict Right Glance
+                lookLeft > 0.48;    // Loosened Left Glance (was 0.32)
 
               if (isLookingAway) {
                 if (isTyping) {
                   suspicionIncrement = 0;
                 } else {
-                  // Severe look detection - also sharpened for looking up
-                  const isSevere = pitchRatio > 4.5 || pitchRatio < 0.50 || yawRatio > 5.0 || yawRatio < 0.20;
+                  // Severe look detection - also asymmetric
+                  const isSevere = pitchRatio > 4.5 || pitchRatio < 0.50 || yawRatio > 7.5 || yawRatio < 0.22;
                   suspicionIncrement = isSevere ? 3 : 1; 
                 }
               }
