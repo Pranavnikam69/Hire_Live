@@ -141,28 +141,29 @@ export const useFaceTracking = (
               const yawRatio = Math.abs(nose.x - leftEdge.x) / Math.abs(rightEdge.x - nose.x);
               const pitchRatio = Math.abs(topEdge.y - nose.y) / Math.abs(bottomEdge.y - nose.y);
 
-              const EYE_HORIZ_TOLERANCE = 0.40;
+              // Dynamic Thresholds for Accuracy
+              const EYE_HORIZ_TOLERANCE = isActuallySpeaking ? 0.45 : 0.35; // Sharp when silent
               const EYE_DOWN_TOLERANCE = 0.42;
               const EYE_UP_TOLERANCE = 0.18; 
               let suspicionIncrement = 0;
 
-              // Asymmetric Thresholds: 
-              // Interviewer video is on the LEFT. Student looks LEFT and their head/eyes turn LEFT.
-              // So we give more room to yawRatio > 1.0 (Left Turn) and lookLeft (Left Glance).
+              // Asymmetric Contextual Thresholds
               const isLookingAway = 
                 pitchRatio > 3.2 || pitchRatio < 0.65 || 
-                yawRatio > 5.8 || // Loosened Left Turn (was 3.2)
-                yawRatio < 0.35 || // Strict Right Turn
+                yawRatio > 5.8 ||             // Loosened Left (Interviewer)
+                yawRatio < 0.38 ||            // Hardened Right (Away from screen)
                 lookDown > EYE_DOWN_TOLERANCE || lookUp > EYE_UP_TOLERANCE || 
-                lookRight > 0.35 || // Strict Right Glance
-                lookLeft > 0.48;    // Loosened Left Glance (was 0.32)
+                lookRight > 0.38 ||           // Hardened Right Glance
+                lookLeft > EYE_HORIZ_TOLERANCE;
 
               if (isLookingAway) {
-                // Suppress if typing OR speaking
-                if (isTyping || isActuallySpeaking) {
-                  suspicionIncrement = 0;
+                if (isActuallySpeaking) {
+                  // 5-Second Grace Mode (Inc: 0.5, Target: 80)
+                  suspicionIncrement = 0.5; 
+                } else if (isTyping) {
+                  suspicionIncrement = 0; // Typing still gets priority pause
                 } else {
-                  // Severe look detection - also asymmetric
+                  // Strict Normal Mode
                   const isSevere = pitchRatio > 4.5 || pitchRatio < 0.50 || yawRatio > 7.5 || yawRatio < 0.22;
                   suspicionIncrement = isSevere ? 3 : 1; 
                 }
@@ -174,7 +175,6 @@ export const useFaceTracking = (
                   playWarningSound("Warning! Look at the screen.");
                   toast.error("Warning: Please look at the screen!", { id: "looking-away", duration: 3000 });
                   
-                  // Add timestamp to ensure uniqueness in Stream's event pipeline
                   call?.sendCustomEvent({ 
                     type: "cheat-alert", 
                     reason: "Student is looking away!",
@@ -183,8 +183,9 @@ export const useFaceTracking = (
                   consecutiveLookingAwayFrames.current = 0;
                 }
               } else {
-                // Faster decay if typing or speaking (active context)
-                const decayRate = (isTyping || isActuallySpeaking) ? 8 : 3;
+                // Decay suspicion: Slower when silent to catch "pulsing" cheaters
+                // Faster when typing/speaking to reward participation
+                const decayRate = (isTyping || isActuallySpeaking) ? 8 : 2;
                 consecutiveLookingAwayFrames.current = Math.max(0, consecutiveLookingAwayFrames.current - decayRate);
               }
             }
