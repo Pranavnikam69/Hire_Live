@@ -58,15 +58,16 @@ function MeetingRoom() {
   const lastInterviewerSpeakingTimeRef = useRef(0);
 
   useEffect(() => {
-    const isInterviewerSpeaking = participants.some((p) => p.isSpeaking && p.userId !== user?.id);
+    // Use sessionId instead of userId to correctly detect speech even when testing with the same user account on two tabs
+    const isInterviewerSpeaking = participants.some((p) => p.isSpeaking && p.sessionId !== localParticipant?.sessionId);
     if (isInterviewerSpeaking) {
       lastInterviewerSpeakingTimeRef.current = Date.now();
       if (!isInterviewerSpeakingRecently) {
-        console.log("[AntiCheat] Interviewer is speaking. Face anti-cheat suppressed.");
+        console.log("[AntiCheat] Remote participant started speaking. Face anti-cheat suppressed.");
         setIsInterviewerSpeakingRecently(true);
       }
     }
-  }, [participants, user?.id, isInterviewerSpeakingRecently]);
+  }, [participants, localParticipant?.sessionId, isInterviewerSpeakingRecently]);
 
   useEffect(() => {
     const interval = setInterval(() => {
